@@ -830,8 +830,11 @@ This chunk was too large to process completely. Here's a summary of what was det
               issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
               issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
               issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-              if (issue.fix) {
-                issueDetails += `- **Fix**: ${issue.fix}\n`;
+              if (issue.fix_summary) {
+                issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+              }
+              if (issue.fix_code_patch) {
+                issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
               }
               if (issue.tests) {
                 issueDetails += `- **Test**: ${issue.tests}\n`;
@@ -852,8 +855,11 @@ This chunk was too large to process completely. Here's a summary of what was det
               issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
               issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
               issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-              if (issue.fix) {
-                issueDetails += `- **Fix**: ${issue.fix}\n`;
+              if (issue.fix_summary) {
+                issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+              }
+              if (issue.fix_code_patch) {
+                issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
               }
               issueDetails += `\n`;
             });
