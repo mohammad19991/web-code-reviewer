@@ -30069,7 +30069,7 @@ Auto-critical overrides (regardless of score):
 
 Evidence Requirements (for EACH issue)
 - Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters
-  (1 sentence), fix (concise, code if helpful), tests (brief test), confidence ∈ [0,1].
+  (1 sentence), fix_summary (brief description of fix approach), fix_code_patch (specific code changes), tests (brief test), confidence ∈ [0,1].
 - Deduplicate repeated patterns: one issue with an "occurrences" array of {file, lines}.
 
 Final Policy
@@ -30100,7 +30100,8 @@ Return THIS JSON object followed by a brief human-readable summary:
       "lines": [120, 134],
       "snippet": "<15-line minimal excerpt>",
       "why_it_matters": "Concrete impact in 1 sentence.",
-      "fix": "Specific steps or code patch.",
+      "fix_summary": "Brief description of the fix approach (1-2 sentences).",
+      "fix_code_patch": "Specific code changes or patch.",
       "tests": "Brief test to prevent regression.",
       "occurrences": [
         { "file": "src/pages/List.tsx", "lines": [88, 95] }
@@ -30161,7 +30162,7 @@ Auto-critical overrides (regardless of score)
 - SQL injection vulnerabilities through string concatenation
 
 Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix (concise, code if helpful), tests (brief test), confidence ∈ [0,1].
+- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix_summary (brief description of fix approach), fix_code_patch (specific code changes), tests (brief test), confidence ∈ [0,1].
 - Deduplicate repeated patterns: one issue with an "occurrences" array of {file, lines}.
 
 Final Policy
@@ -30191,7 +30192,8 @@ Return THIS JSON object followed by a brief human-readable summary:
       "lines": [120, 134],
       "snippet": "<15-line minimal excerpt>",
       "why_it_matters": "Concrete impact in 1 sentence.",
-      "fix": "Specific steps or code patch.",
+      "fix_summary": "Brief description of the fix approach (1-2 sentences).",
+      "fix_code_patch": "Specific code changes or patch.",
       "tests": "Brief test to prevent regression (e.g., pytest).",
       "occurrences": [
         {"file": "app/api/users.py", "lines": [88, 95]}
@@ -30252,7 +30254,7 @@ Auto-critical overrides (regardless of score)
 - XSS vulnerabilities through unescaped user input in responses/templates
 
 Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix (concise, code if helpful), tests (brief test), confidence ∈ [0,1].
+- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix_summary (brief description of fix approach), fix_code_patch (specific code changes), tests (brief test), confidence ∈ [0,1].
 - Deduplicate repeated patterns: one issue with an "occurrences" array of {file, lines}.
 
 Final Policy
@@ -30282,7 +30284,8 @@ Return THIS JSON object followed by a brief human-readable summary:
       "lines": [120, 134],
       "snippet": "<15-line minimal excerpt>",
       "why_it_matters": "Concrete impact in 1 sentence.",
-      "fix": "Specific steps or code patch.",
+      "fix_summary": "Brief description of the fix approach (1-2 sentences).",
+      "fix_code_patch": "Specific code changes or patch.",
       "tests": "Brief test to prevent regression (e.g., JUnit + MockMvc).",
       "occurrences": [
         {"file": "src/main/java/com/example/api/UserController.java", "lines": [88, 95]}
@@ -30345,7 +30348,7 @@ Auto-critical overrides (regardless of score)
 - Long-running workers/daemons (queues/Swoole/RoadRunner) leaking memory/resources or unbounded retries.
 
 Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix (concise, code if helpful), tests (brief test), confidence ∈ [0,1].
+- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix_summary (brief description of fix approach), fix_code_patch (specific code changes), tests (brief test), confidence ∈ [0,1].
 - Deduplicate repeated patterns: one issue with an "occurrences" array of {file, lines}.
 
 Final Policy
@@ -30375,7 +30378,8 @@ Return THIS JSON object followed by a brief human-readable summary:
       "lines": [120, 134],
       "snippet": "<15-line minimal excerpt>",
       "why_it_matters": "Concrete impact in 1 sentence.",
-      "fix": "Specific steps or code patch.",
+      "fix_summary": "Brief description of the fix approach (1-2 sentences).",
+      "fix_code_patch": "Specific code changes or patch.",
       "tests": "Brief test to prevent regression (e.g., Pest/PHPUnit feature test).",
       "occurrences": [
         {"file": "resources/views/users/index.blade.php", "lines": [88, 95]}
@@ -33369,8 +33373,11 @@ This chunk was too large to process completely. Here's a summary of what was det
               issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
               issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
               issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-              if (issue.fix) {
-                issueDetails += `- **Fix**: ${issue.fix}\n`;
+              if (issue.fix_summary) {
+                issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+              }
+              if (issue.fix_code_patch) {
+                issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
               }
               if (issue.tests) {
                 issueDetails += `- **Test**: ${issue.tests}\n`;
@@ -33391,8 +33398,11 @@ This chunk was too large to process completely. Here's a summary of what was det
               issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
               issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
               issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-              if (issue.fix) {
-                issueDetails += `- **Fix**: ${issue.fix}\n`;
+              if (issue.fix_summary) {
+                issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+              }
+              if (issue.fix_code_patch) {
+                issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
               }
               issueDetails += `\n`;
             });
