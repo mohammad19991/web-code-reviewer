@@ -821,9 +821,9 @@ This chunk was too large to process completely. Here's a summary of what was det
           if (criticalIssues.length > 0) {
             issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
             criticalIssues.forEach(issue => {
+              const language = getLanguageForFile(issue.file);
               issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
               if (issue.snippet) {
-                const language = getLanguageForFile(issue.file);
                 issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
               }
               issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
@@ -846,9 +846,9 @@ This chunk was too large to process completely. Here's a summary of what was det
           if (suggestions.length > 0) {
             issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
             suggestions.forEach(issue => {
+              const language = getLanguageForFile(issue.file);
               issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
               if (issue.snippet) {
-                const language = getLanguageForFile(issue.file);
                 issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
               }
               issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
