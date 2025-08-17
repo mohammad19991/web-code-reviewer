@@ -38,6 +38,8 @@ jobs:
           claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
           language: 'js'  # JavaScript/TypeScript
           path_to_files: 'src/'
+          team: 'frontend-team'  # Required: Your team name
+          department: 'web'      # Optional: Department name (defaults to 'web')
 ```
 
 ### Multi-Language Examples
@@ -50,6 +52,8 @@ jobs:
     language: 'js'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
     path_to_files: 'src/,components/'
+    team: 'frontend-team'
+    department: 'web'
 
 # Python Review
 - name: Review Python Code
@@ -58,6 +62,8 @@ jobs:
     language: 'python'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
     path_to_files: 'backend/,api/'
+    team: 'backend-team'
+    department: 'engineering'
 
 # Java Review
 - name: Review Java Code
@@ -66,6 +72,8 @@ jobs:
     language: 'java'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
     path_to_files: 'src/main/java/'
+    team: 'mobile-team'
+    department: 'mobile'
 
 # PHP Review
 - name: Review PHP Code
@@ -74,6 +82,8 @@ jobs:
     language: 'php'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
     path_to_files: 'app/,resources/'
+    team: 'fullstack-team'
+    department: 'web'
 ```
 
 ### Advanced Configuration
@@ -104,6 +114,8 @@ jobs:
           base_branch: 'develop'
           max_tokens: '3000'      # Recommended: 3000-5000 for comprehensive reviews
           temperature: '0'        # Optimal for consistent analytical responses
+          team: 'development-team'  # Required: Your team name
+          department: 'engineering' # Optional: Department name
 ```
 
 ## 📋 Inputs
@@ -116,6 +128,8 @@ jobs:
 | `base_branch` | Base branch to compare against (auto-detected from PR if not specified) | No | `develop` |
 | `max_tokens` | Maximum tokens for LLM response (recommended: 3000-5000 for comprehensive reviews) | No | `3000` |
 | `temperature` | Temperature for LLM response (0.0-1.0, recommended: 0 for analytical responses) | No | `0` |
+| `department` | Department name for logging purposes | No | `web` |
+| `team` | Team name for logging purposes | **Yes** | - |
 | `openai_api_key` | OpenAI API key (required if provider is `openai`) | No | - |
 | `claude_api_key` | Claude API key (required if provider is `claude`) | No | - |
 
@@ -212,6 +226,19 @@ The action automatically determines merge safety based on:
 - **Fix**: Use parameterized queries with proper input validation
 ```
 
+### Review Details Section
+```
+**Review Details:**
+- **Department**: web
+- **Team**: frontend-team
+- **Provider**: CLAUDE
+- **Files Reviewed**: 5 files
+- **Review Date**: 12/19/2024, 2:30:45 PM
+- **Base Branch**: develop
+- **Head Branch**: feature/new-login
+- **Path Filter**: src/,components/
+```
+
 ### Categorized Summary
 - **🚨 Critical Issues**: High-priority security and performance problems
 - **💡 Suggestions**: Improvements and best practice recommendations
@@ -226,6 +253,18 @@ The action automatically detects the base branch from the pull request context:
 - **In PR context**: Uses the PR's base branch automatically
 - **Manual override**: You can specify `base_branch` input to override the auto-detection
 - **Fallback**: Uses `develop` as default if neither PR context nor input is available
+
+### Logging Parameters
+
+The action includes department and team parameters for enhanced logging and tracking:
+
+- **`team`** (Required): Your team name for identification and tracking
+- **`department`** (Optional): Department name, defaults to `web`
+
+These parameters are displayed in:
+- Review logs and console output
+- PR comments for transparency
+- Can be used for analytics and reporting
 
 ### API Keys
 

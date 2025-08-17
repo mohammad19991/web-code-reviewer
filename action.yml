@@ -33,6 +33,13 @@ inputs:
   claude_api_key:
     description: 'Claude API key (required if provider is claude)'
     required: false
+  department:
+    description: 'Department name for logging purposes'
+    required: false
+    default: 'web'
+  team:
+    description: 'Team name for logging purposes'
+    required: true
 
 runs:
   using: 'node20'

@@ -32556,6 +32556,15 @@ class GitHubActionsReviewer {
     this.maxTokens = parseInt(core.getInput('max_tokens')) || CONFIG.MAX_TOKENS;
     this.temperature = parseFloat(core.getInput('temperature')) || CONFIG.TEMPERATURE;
     
+    // Logging parameters
+    this.department = core.getInput('department') || 'web';
+    this.team = core.getInput('team');
+    
+    // Validate required team parameter
+    if (!this.team) {
+      throw new Error('Team parameter is required. Please provide a team name.');
+    }
+    
     // Chunking configuration - Always use CONFIG defaults
     this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
     this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
@@ -33408,6 +33417,8 @@ This chunk was too large to process completely. Here's a summary of what was det
 ${reviewSummary}
 
 **Review Details:**
+- **Department**: ${this.department}
+- **Team**: ${this.team}
 - **Provider**: ${this.provider.toUpperCase()}
 - **Files Reviewed**: ${changedFiles.length} files
 - **Review Date**: ${new Date().toLocaleString()}
@@ -33437,6 +33448,8 @@ ${shouldBlockMerge
     core.info(`🤖 Using ${this.provider.toUpperCase()} LLM`);
     
     core.info(`📋 Review Details:`);
+    core.info(`  - Department: ${this.department}`);
+    core.info(`  - Team: ${this.team}`);
     core.info(`  - Base Branch: ${this.baseBranch}`);
     core.info(`  - Head Ref: ${this.context.sha}`);
     core.info(`  - Review Date: ${new Date().toLocaleString()}`);
