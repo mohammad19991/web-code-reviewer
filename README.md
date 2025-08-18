@@ -15,6 +15,13 @@ A GitHub Action that performs automated code reviews using Large Language Models
 
 ## 🚀 Quick Start
 
+### Required Environment Variables
+
+⚠️ **Important**: The following environment variables are **mandatory** for the action to work:
+
+- **`GITHUB_TOKEN`**: Automatically provided by GitHub Actions (no setup required)
+- **`CLAUDE_API_KEY`** or **`OPENAI_API_KEY`**: Your LLM provider API key
+
 ### Basic Usage
 
 ```yaml
@@ -34,6 +41,8 @@ jobs:
       
       - name: DeepReview
         uses: tajawal/web-code-review@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
         with:
           claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
           language: 'js'  # JavaScript/TypeScript
@@ -48,6 +57,8 @@ jobs:
 # JavaScript/TypeScript Review
 - name: Review JavaScript Code
   uses: tajawal/web-code-review@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
     language: 'js'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -58,6 +69,8 @@ jobs:
 # Python Review
 - name: Review Python Code
   uses: tajawal/web-code-review@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
     language: 'python'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -68,6 +81,8 @@ jobs:
 # Java Review
 - name: Review Java Code
   uses: tajawal/web-code-review@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
     language: 'java'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -78,6 +93,8 @@ jobs:
 # PHP Review
 - name: Review PHP Code
   uses: tajawal/web-code-review@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
     language: 'php'
     claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
@@ -105,6 +122,8 @@ jobs:
       
       - name: DeepReview
         uses: tajawal/web-code-review@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
         with:
           llm_provider: 'claude'  # or 'openai'
           language: 'js'          # js, python, java, php
@@ -266,7 +285,23 @@ These parameters are displayed in:
 - PR comments for transparency
 - Can be used for analytics and reporting
 
-### API Keys
+### Environment Variables
+
+The action requires the following environment variables to function properly:
+
+#### Required Environment Variables
+
+1. **`GITHUB_TOKEN`** (Mandatory)
+   - **Purpose**: Used for GitHub API access to read repository data and post PR comments
+   - **Setup**: Automatically provided by GitHub Actions (no manual setup required)
+   - **Usage**: Must be explicitly set in your workflow as shown in the examples above
+
+2. **`CLAUDE_API_KEY`** or **`OPENAI_API_KEY`** (Mandatory)
+   - **Purpose**: Authentication for your chosen LLM provider
+   - **Setup**: Must be added to your repository secrets
+   - **Usage**: Referenced in the workflow as `${{ secrets.CLAUDE_API_KEY }}`
+
+### API Keys Setup
 
 You'll need to set up API keys for your chosen LLM provider:
 
@@ -285,6 +320,21 @@ You'll need to set up API keys for your chosen LLM provider:
 3. Add your API key:
    - **Name**: `CLAUDE_API_KEY` (for Claude) or `OPENAI_API_KEY` (for OpenAI)
    - **Value**: Your API key
+
+### Environment Variables in Workflow
+
+Make sure to include the required environment variables in your workflow:
+
+```yaml
+- name: DeepReview
+  uses: tajawal/web-code-review@v1
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
+  with:
+    claude_api_key: ${{ secrets.CLAUDE_API_KEY }}  # Required: Your LLM API key
+    team: 'your-team-name'  # Required: Your team name
+    # ... other optional parameters
+```
 
 ## 🔍 Smart File Filtering
 
