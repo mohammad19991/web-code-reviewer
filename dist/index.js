@@ -32557,6 +32557,7 @@ class GitHubActionsReviewer {
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
       
       // If diff is too small, enhance with context
+      core.info(`📝 Diff length: ${diff && diff.length}`);
       if (CONFIG.ENABLE_CONTEXT_ENHANCEMENT && diff && diff.length < CONFIG.CONTEXT_ENHANCEMENT_THRESHOLD) {
         return this.enhanceDiffWithContext(filePath, diff);
       }
