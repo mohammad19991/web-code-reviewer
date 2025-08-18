@@ -145,17 +145,112 @@ class GitHubActionsReviewer {
   }
 
   /**
-   * Get diff for a single file
+   * Get diff for a single file with enhanced context
    */
   getFileDiff(filePath) {
     try {
+      // Get the basic diff
       const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
+      
+      // If diff is too small, enhance with context
+      if (CONFIG.ENABLE_CONTEXT_ENHANCEMENT && diff && diff.length < CONFIG.CONTEXT_ENHANCEMENT_THRESHOLD) {
+        return this.enhanceDiffWithContext(filePath, diff);
+      }
+      
       return diff;
     } catch (error) {
       core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
       return '';
     }
+  }
+
+  /**
+   * Enhance small diffs with surrounding context to help LLM understand the full scope
+   */
+  enhanceDiffWithContext(filePath, originalDiff) {
+    try {
+      // Parse the diff to find changed line numbers
+      const changedLines = this.parseChangedLines(originalDiff);
+      
+      if (changedLines.length === 0) {
+        return originalDiff;
+      }
+
+      // Get the current file content
+      const currentContent = execSync(`git show HEAD:"${filePath}"`, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+      const lines = currentContent.split('\n');
+      
+      // Calculate context range (15 lines before and after the changed lines)
+      const contextRange = this.calculateContextRange(changedLines, lines.length);
+      
+      // Build enhanced diff with context
+      let enhancedDiff = originalDiff;
+      enhancedDiff += '\n\n--- CONTEXT FOR BETTER UNDERSTANDING (NOT PART OF CHANGES) ---\n';
+      enhancedDiff += `--- File: ${filePath} (lines ${contextRange.start}-${contextRange.end}) ---\n`;
+      
+      for (let i = contextRange.start; i <= contextRange.end; i++) {
+        const lineNumber = i + 1; // Convert to 1-based indexing
+        const isChanged = changedLines.some(range => lineNumber >= range.start && lineNumber <= range.end);
+        const prefix = isChanged ? '>>> ' : '    '; // Mark changed lines with >>>
+        enhancedDiff += `${prefix}${lineNumber.toString().padStart(4)}: ${lines[i] || ''}\n`;
+      }
+      
+      enhancedDiff += '\n--- END CONTEXT ---\n';
+      enhancedDiff += '\n**IMPORTANT**: Only review the actual changes above. The context section is for understanding scope only.\n';
+      
+      core.info(`📝 Enhanced diff for ${filePath} with context (lines ${contextRange.start + 1}-${contextRange.end + 1})`);
+      return enhancedDiff;
+      
+    } catch (error) {
+      core.warning(`⚠️  Could not enhance diff with context for ${filePath}: ${error.message}`);
+      return originalDiff; // Fallback to original diff
+    }
+  }
+
+  /**
+   * Parse changed line numbers from diff output
+   */
+  parseChangedLines(diff) {
+    const changedRanges = [];
+    const lines = diff.split('\n');
+    
+    for (const line of lines) {
+      // Match diff headers like "@@ -10,5 +10,7 @@"
+      const match = line.match(/^@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@/);
+      if (match) {
+        const newStart = parseInt(match[3]);
+        const newCount = parseInt(match[4] || '1');
+        changedRanges.push({
+          start: newStart,
+          end: newStart + newCount - 1
+        });
+      }
+    }
+    
+    return changedRanges;
+  }
+
+  /**
+   * Calculate context range around changed lines
+   */
+  calculateContextRange(changedLines, totalLines) {
+    if (changedLines.length === 0) {
+      return { start: 0, end: Math.min(14, totalLines - 1) };
+    }
+    
+    // Find the overall range of changes
+    const minChangedLine = Math.min(...changedLines.map(range => range.start));
+    const maxChangedLine = Math.max(...changedLines.map(range => range.end));
+    
+    // Add context lines before and after
+    const contextBefore = CONFIG.CONTEXT_LINES_BEFORE;
+    const contextAfter = CONFIG.CONTEXT_LINES_AFTER;
+    
+    const start = Math.max(0, minChangedLine - contextBefore - 1); // Convert to 0-based
+    const end = Math.min(totalLines - 1, maxChangedLine + contextAfter - 1); // Convert to 0-based
+    
+    return { start, end };
   }
 
   /**
