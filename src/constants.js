@@ -13,11 +13,6 @@ const CONFIG = {
   DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
   MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
   BATCH_DELAY_MS: 2000, // Increased delay between requests
-  // Context enhancement configuration
-  ENABLE_CONTEXT_ENHANCEMENT: true, // Enable context enhancement for small diffs
-  CONTEXT_ENHANCEMENT_THRESHOLD: 1000, // Diff size threshold in characters to trigger enhancement
-  CONTEXT_LINES_BEFORE: 25, // Number of lines to include before changes
-  CONTEXT_LINES_AFTER: 25, // Number of lines to include after changes
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',
@@ -116,9 +111,7 @@ You are a senior ${role} (10+ years) reviewing only the provided diff/files for 
   scopeAndExclusions: `Scope & Exclusions (very important)
 - Focus on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters concerns, and any non-material preferences.
-- Do not assume code that is not shown. If essential context is missing, do NOT invent details: lower confidence and/or treat the point as a Suggestion.
-- **CRITICAL**: Only review the actual changes (lines marked with + or - in the diff). Context sections marked with ">>>" are for understanding scope only - do NOT review or flag issues in context-only code.
-- If you see a "CONTEXT FOR BETTER UNDERSTANDING" section, use it only to understand the broader scope of the changes, but focus your review on the actual diff lines.`,
+- Do not assume code that is not shown. If essential context is missing, do NOT invent details: lower confidence and/or treat the point as a Suggestion.`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring (mandatory)
