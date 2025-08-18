@@ -16,8 +16,8 @@ const CONFIG = {
   // Context enhancement configuration
   ENABLE_CONTEXT_ENHANCEMENT: true, // Enable context enhancement for small diffs
   CONTEXT_ENHANCEMENT_THRESHOLD: 1000, // Diff size threshold in characters to trigger enhancement
-  CONTEXT_LINES_BEFORE: 15, // Number of lines to include before changes
-  CONTEXT_LINES_AFTER: 15, // Number of lines to include after changes
+  CONTEXT_LINES_BEFORE: 25, // Number of lines to include before changes
+  CONTEXT_LINES_AFTER: 25, // Number of lines to include after changes
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',
