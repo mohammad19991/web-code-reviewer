@@ -29943,9 +29943,9 @@ const CONFIG = {
   BATCH_DELAY_MS: 2000, // Increased delay between requests
   // Context enhancement configuration
   ENABLE_CONTEXT_ENHANCEMENT: true, // Enable context enhancement for small diffs
-  CONTEXT_ENHANCEMENT_THRESHOLD: 500, // Diff size threshold in characters to trigger enhancement
-  CONTEXT_LINES_BEFORE: 10, // Number of lines to include before changes
-  CONTEXT_LINES_AFTER: 10, // Number of lines to include after changes
+  CONTEXT_ENHANCEMENT_THRESHOLD: 1000, // Diff size threshold in characters to trigger enhancement
+  CONTEXT_LINES_BEFORE: 15, // Number of lines to include before changes
+  CONTEXT_LINES_AFTER: 15, // Number of lines to include after changes
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',
