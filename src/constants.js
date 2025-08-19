@@ -13,6 +13,10 @@ const CONFIG = {
   DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
   MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
   BATCH_DELAY_MS: 2000, // Increased delay between requests
+  // Logging configuration
+  ENABLE_REVIEW_LOGGING: true, // Enable logging to external endpoint
+  LOGGING_ENDPOINT: 'https://www.almosafer.com/deep-review/log', // External logging endpoint
+  LOGGING_TIMEOUT: 10000, // Timeout for logging requests (10 seconds)
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',
