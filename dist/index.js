@@ -33121,6 +33121,42 @@ This chunk was too large to process completely. Here's a summary of what was det
   }
 
   /**
+   * Delete previous DeepReview comments on the PR
+   */
+  async deletePreviousComments() {
+    try {
+      // Get all comments on the PR
+      const { data: comments } = await this.octokit.rest.issues.listComments({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        per_page: 100 // Limit to last 100 comments
+      });
+
+      // Find and delete comments made by our bot
+      const botComments = comments.filter(comment => 
+        comment.body.includes('## 🤖 DeepReview') // Match our bot's header
+      );
+
+      for (const comment of botComments) {
+        core.info(`🗑️ Deleting previous DeepReview comment: ${comment.id}`);
+        await this.octokit.rest.issues.deleteComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          comment_id: comment.id
+        });
+      }
+
+      if (botComments.length > 0) {
+        core.info(`✅ Deleted ${botComments.length} previous DeepReview comment(s)`);
+      }
+    } catch (error) {
+      core.warning(`⚠️  Error deleting previous comments: ${error.message}`);
+      // Don't throw error - continue with adding new comment
+    }
+  }
+
+  /**
    * Add PR comment to GitHub
    */
   async addPRComment(comment) {
@@ -33130,6 +33166,10 @@ This chunk was too large to process completely. Here's a summary of what was det
     }
 
     try {
+      // First delete any previous DeepReview comments
+      await this.deletePreviousComments();
+
+      // Add the new comment
       await this.octokit.rest.issues.createComment({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
@@ -33137,7 +33177,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         body: comment
       });
       
-      core.info('✅ Added PR comment successfully');
+      core.info('✅ Added new PR comment successfully');
     } catch (error) {
       core.error(`❌ Error adding PR comment: ${error.message}`);
     }
