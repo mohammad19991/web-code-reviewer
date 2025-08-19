@@ -40,6 +40,10 @@ inputs:
   team:
     description: 'Team name for logging purposes'
     required: true
+  ignore_patterns:
+    description: 'Comma-separated file patterns to ignore during review (e.g., .json,.md,.test.js)'
+    required: false
+    default: '.json,.md,.lock,.test.js,.spec.js'
 
 runs:
   using: 'node20'

@@ -32425,6 +32425,9 @@ class GitHubActionsReviewer {
       throw new Error('Team parameter is required. Please provide a team name.');
     }
     
+    // Parse ignore patterns from input or use default from CONFIG
+    this.ignorePatterns = this.parseIgnorePatterns(core.getInput('ignore_patterns'));
+    
     // Chunking configuration - Always use CONFIG defaults
     this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
     this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
@@ -32449,6 +32452,25 @@ class GitHubActionsReviewer {
         process.env.CLAUDE_API_KEY = claudeKey;
       }
     }
+  }
+
+  /**
+   * Parse ignore patterns input to support multiple comma-separated patterns
+   */
+  parseIgnorePatterns(input) {
+    if (!input) {
+      return CONFIG.IGNORE_PATTERNS;
+    }
+    
+    // Split by comma and clean up whitespace
+    const patterns = input.split(',').map(pattern => pattern.trim()).filter(pattern => pattern.length > 0);
+    
+    if (patterns.length === 0) {
+      return CONFIG.IGNORE_PATTERNS;
+    }
+    
+    core.info(`🚫 Parsed ignore patterns: ${patterns.join(', ')}`);
+    return patterns;
   }
 
   /**
@@ -32509,11 +32531,8 @@ class GitHubActionsReviewer {
           // Check if file matches any of the specified paths
           const matchesPath = this.pathToFiles.some(path => file.startsWith(path));
           
-          // Check if file should be ignored
-          const shouldIgnore = file.endsWith('.json') ||
-                              file.endsWith('.md') ||
-                              file.endsWith('.test.js') ||
-                              file.endsWith('.spec.js');
+          // Check if file should be ignored using ignore patterns from input or default
+          const shouldIgnore = this.ignorePatterns.some(pattern => file.endsWith(pattern));
           
           // Check if file matches the specified language
           const matchesLanguage = this.matchesLanguage(file);
@@ -33438,6 +33457,7 @@ ${reviewSummary}
 - **Base Branch**: ${this.baseBranch}
 - **Head Branch**: ${(this.context.payload.pull_request && this.context.payload.pull_request.head && this.context.payload.pull_request.head.ref) || 'HEAD'}
 - **Path Filter**: ${this.pathToFiles.join(', ')}
+- **Ignored Patterns**: ${this.ignorePatterns.join(', ')}
 
 ---
 
@@ -33469,6 +33489,7 @@ ${shouldBlockMerge
     core.info(`  - Reviewer: ${this.provider.toUpperCase()} LLM`);
     core.info(`  - Language: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`);
     core.info(`  - Path to Files: ${this.pathToFiles.join(', ')}`);
+    core.info(`  - Ignore Patterns: ${this.ignorePatterns.join(', ')}`);
     core.info(`  - PR Number: ${(this.context.issue && this.context.issue.number) || 'Not available'}`);
     core.info(`  - Chunk Size: ${Math.round(this.chunkSize / 1024)}KB (${this.chunkSize} bytes)`);
     core.info(`  - Max Concurrent Requests: ${this.maxConcurrentRequests}`);

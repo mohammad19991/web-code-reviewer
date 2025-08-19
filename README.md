@@ -137,6 +137,7 @@ jobs:
           temperature: '0'        # Optimal for consistent analytical responses
           team: 'development-team'  # Required: Your team name
           department: 'engineering' # Optional: Department name
+          ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.min.js'  # Optional: Custom ignore patterns
 ```
 
 ## 📋 Inputs
@@ -151,6 +152,7 @@ jobs:
 | `temperature` | Temperature for LLM response (0.0-1.0, recommended: 0 for analytical responses) | No | `0` |
 | `department` | Department name for logging purposes | No | `web` |
 | `team` | Team name for logging purposes | **Yes** | - |
+| `ignore_patterns` | Comma-separated file patterns to ignore during review (e.g., `.json,.md,.test.js`) | No | `.json,.md,.lock,.test.js,.spec.js` |
 | `openai_api_key` | OpenAI API key (required if provider is `openai`) | No | - |
 | `claude_api_key` | Claude API key (required if provider is `claude`) | No | - |
 
@@ -295,6 +297,7 @@ The action automatically determines merge safety based on:
 - **Base Branch**: develop
 - **Head Branch**: feature/new-login
 - **Path Filter**: src/,components/
+- **Ignored Patterns**: .json, .md, .lock, .test.js, .spec.js
 ```
 
 ### Categorized Summary
@@ -426,7 +429,22 @@ The action automatically filters files based on language and path:
 ### Path Filtering
 - **Included**: Files in any of the specified paths (default: `packages/`)
 - **Multiple Paths**: You can specify multiple comma-separated paths
-- **Excluded**: `.json`, `.md`, `.lock`, `.test.js`, `.spec.js` files
+
+### Ignore Patterns
+- **Default**: The action automatically ignores `.json`, `.md`, `.lock`, `.test.js`, `.spec.js` files
+- **Customizable**: You can override default patterns using the `ignore_patterns` parameter
+- **Format**: Comma-separated list of file extensions or patterns
+- **Examples**:
+  ```yaml
+  # Use default ignore patterns
+  ignore_patterns: '.json,.md,.lock,.test.js,.spec.js'
+  
+  # Custom ignore patterns
+  ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.min.js,.bundle.js'
+  
+  # Ignore additional file types
+  ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.log,.tmp,.cache'
+  ```
 
 ### Path Examples:
 ```yaml
@@ -440,6 +458,21 @@ path_to_files: 'packages/,src/,components/'
 path_to_files: 'src/,main/,java/'  # for Java
 path_to_files: 'backend/,api/'   # for Python
 path_to_files: 'app/,resources/' # for PHP
+
+### Ignore Patterns Examples:
+```yaml
+# Ignore build artifacts and generated files
+ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.min.js,.bundle.js,.map'
+
+# Ignore configuration and documentation files
+ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.yml,.yaml,.toml,.ini'
+
+# Ignore temporary and cache files
+ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.log,.tmp,.cache,.swp'
+
+# Minimal ignore (only essential patterns)
+ignore_patterns: '.json,.md,.lock'
+```
 ```
 
 ## 🛠️ Development
