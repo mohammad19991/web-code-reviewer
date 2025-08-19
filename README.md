@@ -12,6 +12,8 @@ A GitHub Action that performs automated code reviews using Large Language Models
 - **📝 Enhanced PR Comments**: Rich, categorized review results with severity indicators
 - **⚡ Optimized Processing**: Intelligent chunking and rate limiting for large codebases
 - **🔧 Configurable**: Customizable paths, tokens, temperature, and language settings
+- **📈 External Logging**: Non-blocking analytics logging to external endpoints for monitoring and insights
+- **🏗️ Modular Architecture**: Centralized JSON parsing and reusable components for maintainability
 
 ## 🚀 Quick Start
 
@@ -218,6 +220,43 @@ severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blas
 - **Medium Confidence** (0.6-0.8): Good evidence, reasonable recommendations
 - **Low Confidence** (<0.6): Limited evidence, suggestions for manual review
 
+### Data Structure
+
+The action now provides a comprehensive data structure for each review:
+
+```javascript
+{
+  issues: [
+    {
+      id: "SEC-01",
+      category: "security",
+      severity_proposed: "critical",
+      severity_score: 4.2,
+      confidence: 0.85,
+      file: "src/components/Login.jsx",
+      lines: [45, 52],
+      snippet: "vulnerable code...",
+      why_it_matters: "SQL injection risk",
+      fix_summary: "Use parameterized queries",
+      fix_code_patch: "safe code...",
+      tests: "Test with malicious input",
+      chunk: 1,
+      originalId: "SEC-01"
+    }
+  ],
+  summaries: ["Chunk 1: Found 2 security issues"],
+  totalCriticalCount: 2,
+  totalSuggestionCount: 1,
+  chunksProcessed: 1
+}
+```
+
+This structure enables:
+- **Better Analytics**: Comprehensive data for monitoring and insights
+- **Improved Logging**: Detailed information for external systems
+- **Enhanced Display**: Rich PR comments with categorized issues
+- **Debugging Support**: Clear tracking of which chunk produced which issues
+
 ## 🎯 Merge Decision Logic
 
 The action automatically determines merge safety based on:
@@ -284,6 +323,44 @@ These parameters are displayed in:
 - Review logs and console output
 - PR comments for transparency
 - Can be used for analytics and reporting
+
+### External Logging
+
+The action automatically logs review data to an external endpoint for analytics and monitoring:
+
+#### Logged Data Structure
+```json
+{
+  "department": "web",
+  "team": "frontend-team",
+  "head_branch": "feature/new-login",
+  "files_reviewed": 5,
+  "issues": [
+    {
+      "id": "SEC-01",
+      "category": "security",
+      "severity": "critical",
+      "severity_score": 4.2,
+      "confidence": 0.85,
+      "file": "src/components/Login.jsx",
+      "lines": [45, 52],
+      "chunk": 1
+    }
+  ],
+  "review_timestamp": "2024-12-19T14:30:45.123Z",
+  "repository": "owner/repo",
+  "pr_number": 123,
+  "merge_blocked": true,
+  "language": "js",
+  "provider": "claude"
+}
+```
+
+#### Logging Features
+- **Non-blocking**: Logging happens asynchronously and doesn't delay PR comment generation
+- **Configurable**: Can be enabled/disabled via configuration
+- **Error handling**: Failed logging attempts don't affect the review process
+- **Comprehensive data**: Includes all review metadata, issues, and metrics
 
 ### Environment Variables
 
@@ -364,18 +441,6 @@ path_to_files: 'src/,main/,java/'  # for Java
 path_to_files: 'backend/,api/'   # for Python
 path_to_files: 'app/,resources/' # for PHP
 ```
-
-## ⚡ Performance Optimizations
-
-### Intelligent Chunking
-- **Default Chunk Size**: 300KB (optimized for Claude Sonnet 4)
-- **Adaptive Processing**: Sequential for small batches, controlled concurrency for large batches
-- **Rate Limiting**: Built-in delays and retry logic to avoid API limits
-
-### Error Handling
-- **Exponential Backoff**: Automatic retry with increasing delays
-- **Token Limit Management**: Graceful handling of large files
-- **Response Validation**: Ensures LLM responses are valid and complete
 
 ## 🛠️ Development
 
