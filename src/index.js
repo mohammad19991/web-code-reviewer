@@ -599,11 +599,11 @@ This chunk was too large to process completely. Here's a summary of what was det
    */
   checkMergeDecision(llmResponse) {
     try {
-      // Try to extract all JSON objects from the response
-      const jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g);
+      // Try to extract JSON from the new XML-style format first
+      const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
       
       if (jsonMatches && jsonMatches.length > 0) {
-        core.info(`📊 Found ${jsonMatches.length} JSON objects in response`);
+        core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
         
         // Parse all JSON objects and combine their data
         const allIssues = [];
@@ -612,7 +612,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
             
             core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
@@ -863,7 +863,9 @@ This chunk was too large to process completely. Here's a summary of what was det
         confidence: issue.confidence,
         file: issue.file,
         lines: issue.lines,
-        chunk: issue.chunk
+        chunk: issue.chunk,
+        risk_factors: issue.risk_factors,
+        risk_factors_notes: issue.risk_factors_notes
       }));
       
       const reviewData = {
@@ -911,13 +913,13 @@ This chunk was too large to process completely. Here's a summary of what was det
     let jsonMatches = [];
     
     try {
-      // Try to extract JSON objects from the response
-      jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g) || [];
+      // Try to extract JSON from the new XML-style format first
+      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
       
       if (jsonMatches.length > 0) {
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
             const reviewData = JSON.parse(jsonStr);
             
             // Collect summary

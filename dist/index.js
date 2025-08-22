@@ -30039,42 +30039,47 @@ const SHARED_PROMPT_COMPONENTS = {
   roleAndGoal: (language, role) => `Role & Goal
 You are a senior ${role} (10+ years) reviewing only the provided diff/files for enterprise ${language} apps. Produce a single summary comment (no inline clutter) that highlights critical, hard-to-spot issues across Performance, Security, Maintainability, and Best Practices.`,
 
+  detrminismAndOutputContract:`
+Determinism & Output Contract
+- Return EXACTLY two parts, in this order, with no extra prose:
+  1) <JSON>…valid single JSON object…</JSON>
+  2) <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
+- Do NOT wrap JSON in markdown/code fences. No commentary outside these tags.
+- If the JSON would be invalid, immediately re-emit a corrected JSON object (no explanations).
+- Maximum 10 issues. Sort by severity_score (desc). Use 1-based, inclusive line numbers. Round severity_score to 2 decimals.
+`,
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions (very important)
-- Focus on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
-- Ignore style/formatting/naming/import order/linters/auto-formatters concerns, and any non-material preferences.
-- Do not assume code that is not shown. If essential context is missing, do NOT invent details: lower confidence and/or treat the point as a Suggestion.`,
+- Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
+- Ignore style/formatting/naming/import order/linters/auto-formatters and non-material preferences.
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence; mark as "suggestion".`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring (mandatory)
 For EACH issue, assign 0–5 scores:
-- impact
-- exploitability
-- likelihood
-- blast_radius
-- evidence_strength
-
+- impact, exploitability, likelihood, blast_radius, evidence_strength
 Compute:
 severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
-
-Set "severity_proposed" using ONLY:
-- "critical" if severity_score ≥ 3.6 AND evidence_strength ≥ 3
-- otherwise "suggestion"`,
+Set severity_proposed:
+- "critical" if severity_score ≥ 3.60 AND evidence_strength ≥ 3
+- otherwise "suggestion"
+Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").`,
 
   // Common evidence requirements
   evidenceRequirements: `Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines ([start,end]), a minimal snippet (≤15 lines), why_it_matters (1 sentence), fix_summary (brief description of fix approach), fix_code_patch (specific code changes), tests (brief test), confidence ∈ [0,1].
-- Deduplicate repeated patterns: one issue with an "occurrences" array of {file, lines}.`,
+- Provide: file (relative path), lines [start,end], snippet (≤12 lines, must include the risky call/sink), why_it_matters (1 sentence), fix_summary (1–2 sentences), fix_code_patch (specific code changes), tests (brief regression test), confidence ∈ [0,1].
+- Deduplicate repeated patterns via "occurrences": array of {file, lines}.
+- If you cannot anchor an exact edit, prefix fix_code_patch with "// approximate", set evidence_strength ≤ 2 and confidence ≤ 0.5.`,
 
   // Common final policy
   finalPolicy: `Final Policy
-- final_recommendation = "do_not_merge" if any issue ends up "critical" with confidence ≥ 0.6; else "safe_to_merge".`,
+- final_recommendation = "do_not_merge" if any issue is "critical" with confidence ≥ 0.6; else "safe_to_merge".`,
 
   // Common output format
-  outputFormat: (testExample) => `Output Format (JSON first, then a short human summary)
-Return THIS JSON object followed by a brief human-readable summary:
+  outputFormat: (testExample, fileExample) => `Output Format
+Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summary inside <SUMMARY> … </SUMMARY>:
 
-\`\`\`json
+<JSON>
 {
   "summary": "1–3 sentences overall assessment.",
   "issues": [
@@ -30082,38 +30087,44 @@ Return THIS JSON object followed by a brief human-readable summary:
       "id": "SEC-01",
       "category": "security|performance|maintainability|best_practices",
       "severity_proposed": "critical|suggestion",
-      "severity_score": 0.0,
-      "risk_factors": {
-        "impact": 0,
-        "exploitability": 0,
-        "likelihood": 0,
-        "blast_radius": 0,
-        "evidence_strength": 0
+      "severity_score": 0.00,
+      "risk_factors": { "impact": 0, "exploitability": 0, "likelihood": 0, "blast_radius": 0, "evidence_strength": 0 },
+      "risk_factors_notes": {
+        "impact": "short anchor text",
+        "exploitability": "short anchor text",
+        "likelihood": "short anchor text",
+        "blast_radius": "short anchor text",
+        "evidence_strength": "short anchor text"
       },
       "confidence": 0.0,
-      "file": "src/components/Example.tsx",
-      "lines": [120, 134],
-      "snippet": "<15-line minimal excerpt>",
+      "file": "${fileExample}",
+      "lines": [120,134],
+      "snippet": "<12-line minimal excerpt including the risky sink/call>",
       "why_it_matters": "Concrete impact in 1 sentence.",
-      "fix_summary": "Brief description of the fix approach (1-2 sentences).",
-      "fix_code_patch": "Specific code changes or patch.",
-      "tests": "Brief test to prevent regression${testExample}.",
+      "fix_summary": "Brief description of the fix approach (1–2 sentences).",
+      "fix_code_patch": "// concrete or approximate minimal patch anchored to the snippet/lines",
+      "tests": "Brief test to prevent regression${testExample}",
       "occurrences": [
-        {"file": "src/pages/Example.tsx", "lines": [88, 95]}
+        {"file": "${fileExample}", "lines": [88,95]}
       ]
     }
   ],
-  "metrics": { "critical_count": 0, "suggestion_count": 0 },
+  "metrics": {
+    "critical_count": 0,
+    "suggestion_count": 0,
+    "by_category": { "security": 0, "performance": 0, "maintainability": 0, "best_practices": 0 },
+    "auto_critical_hits": 0
+  },
   "final_recommendation": "safe_to_merge|do_not_merge"
 }
-\`\`\`
+</JSON>
 
-Then add a short human summary:
-- Summary of key issues by category (bullets, ≤6 lines):
-  • 🔒 Security issues
-  • ⚡ Performance issues
-  • 🛠️ Maintainability issues
-  • 📚 Best Practices issues`,
+<SUMMARY>
+• 🔒 Security issues — short note
+• ⚡ Performance issues — short note
+• 🛠️ Maintainability issues — short note
+• 📚 Best Practices issues — short note
+</SUMMARY>`,
 
   // Common context
   context: `Context: Here are the code changes (diff or full files):`
@@ -30123,77 +30134,90 @@ Then add a short human summary:
  * Language-specific auto-critical overrides
  */
 const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-critical overrides (regardless of score):
-- Unsanitized HTML sinks (e.g., innerHTML/dangerouslySetInnerHTML) with untrusted input
-- Secret/credential/API key embedded in client code
-- Unbounded listener/timer or render-time loop causing growth/leak
-- Direct DOM injection/navigation from untrusted input without validation/escaping
-- Missing CSRF protection on state-changing operations
-- XSS vulnerabilities through unescaped user input in DOM/HTML`,
+  js: `Auto-critical overrides (regardless of score)
+- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
+- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
+- window.postMessage with "*" targetOrigin or without strict origin checks.
+- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
+- Dynamic code execution with untrusted input (eval, new Function, VM).
+- Secrets/credentials/API tokens embedded in client code or shipped to browser.
+- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
+- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
+- URL.createObjectURL used with untrusted blobs without revocation/validation.
+- Missing CSRF protection on same-origin state-changing fetch/XHR.
+- XSS via unescaped user input rendered into the DOM/HTML.`,
 
   python: `Auto-critical overrides (regardless of score)
-- Unsafe code execution/deserialization on untrusted input (e.g., eval/exec, pickle.loads, yaml.load without SafeLoader).
-- Hard-coded secrets/credentials/API keys/private keys embedded in code or configs.
-- Unbounded loops/threads/timers or resource leaks (files/sockets/processes not closed; missing context managers) causing growth/leak.
-- Direct system/DB calls from untrusted input without validation/parameterization (e.g., subprocess(..., shell=true) or string-formatted SQL).
-- Missing CSRF protection on state-changing operations
-- XSS vulnerabilities through unescaped user input in templates/HTML
-- SQL injection vulnerabilities through string concatenation`,
+- eval/exec on user input.
+- pickle.load or yaml.load (unsafe Loader) on untrusted data.
+- subprocess/os.system with shell=True and untrusted input (command injection).
+- SQL composed with f-strings/%/.format (no parameterization).
+- requests/urllib with SSL verification disabled (verify=False).
+- DEBUG=True or template autoescape disabled in production.
+- Jinja2/Django template injection via unescaped user input.
+- CSRF disabled/missing for state-changing endpoints (web apps).
+- Path traversal in file I/O without canonicalization/validation.
+- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
+- Secrets/credentials embedded in code or .py files.
+- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
 
   java: `Auto-critical overrides (regardless of score)
-- Unsafe deserialization / code execution on untrusted input (e.g., ObjectInputStream.readObject, Jackson default-typing enabling polymorphic deserialization, SnakeYAML load without safe config).
-- Hard-coded secrets/credentials/API keys/private keys in source or configs.
-- Command injection / shell execution using untrusted input (e.g., Runtime.getRuntime().exec, ProcessBuilder) without strict whitelisting.
-- SQL/JPQL injection via string concatenation (no prepared statements/parameter binding).
-- XXE / XML parser not hardened (no FEATURE_SECURE_PROCESSING, external entities enabled).
-- Unbounded thread pools/schedulers/timers or resource leaks (unclosed Connection/ResultSet/InputStream; missing try-with-resources) causing growth/leak.
-- Missing CSRF protection on state-changing operations
-- XSS vulnerabilities through unescaped user input in responses/templates`,
+- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
+- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
+- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
+- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
+- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
+- Path traversal in file I/O without canonicalization/checks.
+- Command injection via shell calls / native processes from user input.
+- XSS/HTML injection in server-side rendered responses due to missing escaping.
+- CSRF disabled for state-changing endpoints without compensating controls.
+- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
+- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.`,
 
   php: `Auto-critical overrides (regardless of score)
-- Unsafe deserialization/code execution on untrusted input (e.g., \\unserialize, \\eval, dynamic \\include/\\require from user input).
-- Hard-coded secrets/credentials/API keys/private keys in source or configs (e.g., committing .env values).
-- SQL injection via string concatenation (no prepared statements/parameter binding), or raw queries with user input.
-- Cross-site scripting (XSS): echoing unescaped user data in templates (Blade/Twig/Plain PHP) or building HTML with untrusted input.
-- CSRF missing/disabled on state-changing routes where framework support exists.
-- Insecure file upload/handlicURL/Guzzle with unvalidated URLs, disabling TLS verification.
-- Long-running workers/daemons (queues/Swoole/RoadRunner) leaking memory/resources or unbounded retries.`
+- eval/assert/create_function on user input.
+- File inclusion from user-controlled input (include/require with tainted path).
+- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
+- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
+- Passwords hashed with md5/sha1 (use password_hash/password_verify).
+- Exposing phpinfo or debug toolbars in production.
+- Command injection via shell_exec/system/passthru with untrusted input.
+- XSS via unescaped user input in templates (echo/print) or legacy engines.
+- CSRF middleware disabled or missing on state-changing routes.
+- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
+- Path traversal in file operations without sanitization.
+- Secrets/credentials in code or committed configs.`
 };
 
 /**
  * Language-specific checks
  */
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `Frontend-specific checks (only if visible in diff) 
-- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; consider Suspense/lazy for large modules. 
-- TypeScript: any/unknown leakage; unsafe narrowing; non-null assertions (!). 
-- Fetch/IO: missing abort/timeout; lack of retry/backoff for critical calls; leaking subscriptions/websockets. 
-- Accessibility: critical only if it blocks core flows.`,
+  js: `JavaScript/TypeScript checks (only if visible in diff)
+- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
+- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
+- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
+- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
+- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
+- Accessibility: only flag as "critical" if it blocks core flows.`,
 
   python: `Python-specific checks (only if visible in diff)
-- Web frameworks (Django/Flask/FastAPI): DEBUG=true in prod; missing CSRF where required; missing authz checks; raw/unparameterized SQL; path traversal in file ops; open redirects; overly permissive CORS.
-- I/O & Network: requests without timeouts/retries; verify=false on TLS; unbounded file/socket usage; missing context managers (with open(...)); large in-memory loads where streaming fits.
-- Concurrency & Async: blocking calls in async handlers; missing await; unjoined threads/processes; race conditions without locks; misuse of shared mutables.
-- Language & Stdlib: eval/exec; pickle/yaml.load (unsafe loader); subprocess(..., shell=true) with user input; broad except Exception swallowing errors; mutable default args; weak crypto for security (e.g., md5/sha1 for passwords, using random instead of secrets).`,
+- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
+- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
+- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
+- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
 
   java: `Java-specific checks (only if visible in diff)
-- Web & REST (Spring/Jakarta): Missing authn/authz on endpoints; permissive CORS; user input directly into queries; unvalidated redirects; exposing stack traces in prod; @ControllerAdvice/exception handlers swallowing errors.
-- DB & ORM (JPA/Hibernate/MyBatis): N+1 queries; missing @Transactional where required; string-concatenated queries; lack of indices for hot lookups; incorrect fetch type (EAGER on large graphs).
-- I/O & HTTP clients: No timeouts/retries/circuit breakers (e.g., HttpClient, RestTemplate, WebClient); SSLSocketFactory/TLS verification disabled; large payloads buffered in memory instead of streaming.
-- Concurrency & Resources: Blocking calls on reactive/async threads; unbounded ExecutorService/Scheduler; not closing streams/sockets; missing try-with-resources; misuse of synchronized leading to contention; unsafe publication/races.
-- Security & Crypto: MessageDigest with MD5/SHA-1 for passwords (use bcrypt/Argon2/PBKDF2); SecureRandom vs Random for secrets; JWT without signature/verification; weak CSRF handling where applicable.
-- Serialization & XML/JSON: Jackson default typing enabling polymorphic gadget chains; SnakeYAML unsafe load; XML parsers without secure features (XXE).
-- Logging & Errors: Logging sensitive data (tokens/PII); excessive logging in hot paths; broad catch (Exception) suppressing failures.`,
+- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
+- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
+- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
+- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
 
   php: `PHP-specific checks (only if visible in diff)
-- Web & Routing (Laravel/Symfony): missing authn/authz middleware; overly permissive CORS; mass-assignment vulnerabilities (unguarded models/fillable misuse); missing validation/sanitization on request data; returning sensitive data in responses.
-- Views/Templates: unescaped output in Blade/Twig/echo; building HTML via string concatenation with user input; unsafe raw tags (\\{!! !!}\\).
-- Database/ORM: raw queries with concatenated input; N+1 queries (eager loading missing); transactions missing for multi-step writes; lack of indexes for hot lookups.
-- I/O & HTTP clients: cURL/Guzzle without timeouts/retries; TLS verification disabled; large payloads buffered in memory instead of streamed; not closing file handles.
-- Sessions & Cookies: weak cookie flags (no HttpOnly/Secure/SameSite); storing secrets/PII in session without encryption.
-- Crypto & Passwords: using md5/sha1 or \\password_hash without appropriate algorithm options; using \\rand for tokens instead of \\random_bytes/\\bin2hex.
-- Errors & Logging: exposing stack traces in production; logging sensitive data (tokens/PII); broad catch blocks hiding failures.
-- Workers/Queues/Schedulers: memory leaks from static caches/large arrays, unbounded retries, missing backoff/dead-letter handling.`
+- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
+- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
+- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
+- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`
 };
 
 /**
@@ -30203,7 +30227,7 @@ const LANGUAGE_CONFIGS = {
   js: {
     role: 'frontend engineer',
     language: 'JavaScript/TypeScript',
-    testExample: '',
+    testExample: ' (e.g., RTL/jest/vitest).',
     fileExample: 'src/components/Table.tsx'
   },
   python: {
@@ -30237,19 +30261,21 @@ function buildLanguagePrompt(language) {
 
   return `${SHARED_PROMPT_COMPONENTS.roleAndGoal(config.language, config.role)}
 
+${SHARED_PROMPT_COMPONENTS.detrminismAndOutputContract}
+
 ${SHARED_PROMPT_COMPONENTS.scopeAndExclusions}
 
 ${SHARED_PROMPT_COMPONENTS.severityScoring}
 
 ${LANGUAGE_CRITICAL_OVERRIDES[language]}
 
+${LANGUAGE_SPECIFIC_CHECKS[language]}
+
 ${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
 
 ${SHARED_PROMPT_COMPONENTS.finalPolicy}
 
-${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample).replace('src/components/Example.tsx', config.fileExample)}
-
-${LANGUAGE_SPECIFIC_CHECKS[language]}
+${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}
 
 ${SHARED_PROMPT_COMPONENTS.context}`;
 }
@@ -32998,11 +33024,11 @@ This chunk was too large to process completely. Here's a summary of what was det
    */
   checkMergeDecision(llmResponse) {
     try {
-      // Try to extract all JSON objects from the response
-      const jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g);
+      // Try to extract JSON from the new XML-style format first
+      const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
       
       if (jsonMatches && jsonMatches.length > 0) {
-        core.info(`📊 Found ${jsonMatches.length} JSON objects in response`);
+        core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
         
         // Parse all JSON objects and combine their data
         const allIssues = [];
@@ -33011,7 +33037,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
             
             core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
@@ -33262,7 +33288,9 @@ This chunk was too large to process completely. Here's a summary of what was det
         confidence: issue.confidence,
         file: issue.file,
         lines: issue.lines,
-        chunk: issue.chunk
+        chunk: issue.chunk,
+        risk_factors: issue.risk_factors,
+        risk_factors_notes: issue.risk_factors_notes
       }));
       
       const reviewData = {
@@ -33310,13 +33338,13 @@ This chunk was too large to process completely. Here's a summary of what was det
     let jsonMatches = [];
     
     try {
-      // Try to extract JSON objects from the response
-      jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g) || [];
+      // Try to extract JSON from the new XML-style format first
+      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
       
       if (jsonMatches.length > 0) {
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
             const reviewData = JSON.parse(jsonStr);
             
             // Collect summary
