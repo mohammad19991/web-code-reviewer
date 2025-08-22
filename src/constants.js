@@ -17,6 +17,10 @@ const CONFIG = {
   ENABLE_REVIEW_LOGGING: true, // Enable logging to external endpoint
   LOGGING_ENDPOINT: 'https://www.almosafer.com/deep-review/log', // External logging endpoint
   LOGGING_TIMEOUT: 10000, // Timeout for logging requests (10 seconds)
+  // PR Label configuration
+  POST_REVIEW_LABEL: 'AI Review Complete', // Label to add after code review
+  POST_REVIEW_LABEL_COLOR: '0366d6', // GitHub blue color
+  POST_REVIEW_LABEL_DESCRIPTION: 'Pull request has been reviewed by AI code reviewer',
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',

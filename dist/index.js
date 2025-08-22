@@ -29945,6 +29945,10 @@ const CONFIG = {
   ENABLE_REVIEW_LOGGING: true, // Enable logging to external endpoint
   LOGGING_ENDPOINT: 'https://www.almosafer.com/deep-review/log', // External logging endpoint
   LOGGING_TIMEOUT: 10000, // Timeout for logging requests (10 seconds)
+  // PR Label configuration
+  POST_REVIEW_LABEL: 'AI Review Complete', // Label to add after code review
+  POST_REVIEW_LABEL_COLOR: '0366d6', // GitHub blue color
+  POST_REVIEW_LABEL_DESCRIPTION: 'Pull request has been reviewed by AI code reviewer',
   APPROVAL_PHRASES: [
     'safe to merge', '✅ safe to merge', 'merge approved', 
     'no critical issues', 'safe to commit', 'approved for merge',
@@ -33166,6 +33170,81 @@ This chunk was too large to process completely. Here's a summary of what was det
   }
 
   /**
+   * Add "post code review" label to the PR if it doesn't exist
+   */
+  async addPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      // Check if the label already exists on the PR
+      const { data: labels } = await this.octokit.rest.issues.listLabelsOnIssue({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number
+      });
+      
+      const labelExists = labels.some(label => label.name.toLowerCase() === labelName.toLowerCase());
+      
+      if (labelExists) {
+        core.info(`🏷️  Label "${labelName}" already exists on PR`);
+        return;
+      }
+      
+      // Try to add the label to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      // If the label doesn't exist in the repository, try to create it first
+      if (error.status === 422) {
+        try {
+          await this.createPostCodeReviewLabel();
+        } catch (createError) {
+          core.warning(`⚠️  Could not create "${labelName}" label: ${createError.message}`);
+        }
+      } else {
+        core.warning(`⚠️  Error adding "${labelName}" label: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Create the "post code review" label in the repository
+   */
+  async createPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      await this.octokit.rest.issues.createLabel({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        name: labelName,
+        color: CONFIG.POST_REVIEW_LABEL_COLOR,
+        description: CONFIG.POST_REVIEW_LABEL_DESCRIPTION
+      });
+      
+      core.info(`🏷️  Created "${labelName}" label in repository`);
+      
+      // Now try to add it to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      core.warning(`⚠️  Error creating "${labelName}" label: ${error.message}`);
+    }
+  }
+
+  /**
    * Delete previous DeepReview comments on the PR
    */
   async deletePreviousComments() {
@@ -33223,6 +33302,10 @@ This chunk was too large to process completely. Here's a summary of what was det
       });
       
       core.info('✅ Added new PR comment successfully');
+      
+      // Add "post code review" label to the PR
+      core.info('🏷️  Adding "post code review" label to PR...');
+      await this.addPostCodeReviewLabel();
     } catch (error) {
       core.error(`❌ Error adding PR comment: ${error.message}`);
     }
