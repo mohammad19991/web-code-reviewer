@@ -599,11 +599,11 @@ This chunk was too large to process completely. Here's a summary of what was det
    */
   checkMergeDecision(llmResponse) {
     try {
-      // Try to extract all JSON objects from the response
-      const jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g);
+      // Try to extract JSON from the new XML-style format first
+      const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
       
       if (jsonMatches && jsonMatches.length > 0) {
-        core.info(`📊 Found ${jsonMatches.length} JSON objects in response`);
+        core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
         
         // Parse all JSON objects and combine their data
         const allIssues = [];
@@ -612,7 +612,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
             
             core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
@@ -741,6 +741,81 @@ This chunk was too large to process completely. Here's a summary of what was det
   }
 
   /**
+   * Add "post code review" label to the PR if it doesn't exist
+   */
+  async addPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      // Check if the label already exists on the PR
+      const { data: labels } = await this.octokit.rest.issues.listLabelsOnIssue({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number
+      });
+      
+      const labelExists = labels.some(label => label.name.toLowerCase() === labelName.toLowerCase());
+      
+      if (labelExists) {
+        core.info(`🏷️  Label "${labelName}" already exists on PR`);
+        return;
+      }
+      
+      // Try to add the label to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      // If the label doesn't exist in the repository, try to create it first
+      if (error.status === 422) {
+        try {
+          await this.createPostCodeReviewLabel();
+        } catch (createError) {
+          core.warning(`⚠️  Could not create "${labelName}" label: ${createError.message}`);
+        }
+      } else {
+        core.warning(`⚠️  Error adding "${labelName}" label: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Create the "post code review" label in the repository
+   */
+  async createPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      await this.octokit.rest.issues.createLabel({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        name: labelName,
+        color: CONFIG.POST_REVIEW_LABEL_COLOR,
+        description: CONFIG.POST_REVIEW_LABEL_DESCRIPTION
+      });
+      
+      core.info(`🏷️  Created "${labelName}" label in repository`);
+      
+      // Now try to add it to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      core.warning(`⚠️  Error creating "${labelName}" label: ${error.message}`);
+    }
+  }
+
+  /**
    * Delete previous DeepReview comments on the PR
    */
   async deletePreviousComments() {
@@ -798,6 +873,10 @@ This chunk was too large to process completely. Here's a summary of what was det
       });
       
       core.info('✅ Added new PR comment successfully');
+      
+      // Add "post code review" label to the PR
+      core.info('🏷️  Adding "post code review" label to PR...');
+      await this.addPostCodeReviewLabel();
     } catch (error) {
       core.error(`❌ Error adding PR comment: ${error.message}`);
     }
@@ -863,7 +942,9 @@ This chunk was too large to process completely. Here's a summary of what was det
         confidence: issue.confidence,
         file: issue.file,
         lines: issue.lines,
-        chunk: issue.chunk
+        chunk: issue.chunk,
+        risk_factors: issue.risk_factors,
+        risk_factors_notes: issue.risk_factors_notes
       }));
       
       const reviewData = {
@@ -911,13 +992,13 @@ This chunk was too large to process completely. Here's a summary of what was det
     let jsonMatches = [];
     
     try {
-      // Try to extract JSON objects from the response
-      jsonMatches = llmResponse.match(/```json\s*([\s\S]*?)\s*```/g) || [];
+      // Try to extract JSON from the new XML-style format first
+      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
       
       if (jsonMatches.length > 0) {
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/```json\s*/, '').replace(/\s*```/, '');
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
             const reviewData = JSON.parse(jsonStr);
             
             // Collect summary
