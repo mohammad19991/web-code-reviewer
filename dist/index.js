@@ -30051,6 +30051,9 @@ Determinism & Output Contract
 - Do NOT wrap JSON in markdown/code fences. No commentary outside these tags.
 - If the JSON would be invalid, immediately re-emit a corrected JSON object (no explanations).
 - Maximum 10 issues. Sort by severity_score (desc). Use 1-based, inclusive line numbers. Round severity_score to 2 decimals.
+- CRITICAL: Be deterministic. For identical code inputs, produce identical outputs.
+- Use consistent issue IDs: SEC-01, SEC-02, PERF-01, PERF-02, MAINT-01, MAINT-02, BEST-01, BEST-02.
+- Apply the same severity scoring algorithm consistently across all issues.
 `,
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions (very important)
@@ -30060,14 +30063,23 @@ Determinism & Output Contract
 
   // Common severity scoring
   severityScoring: `Severity Scoring (mandatory)
-For EACH issue, assign 0–5 scores:
-- impact, exploitability, likelihood, blast_radius, evidence_strength
-Compute:
+For EACH issue, assign 0–5 scores using these EXACT criteria:
+- impact: 0=none, 1=low, 2=medium, 3=high, 4=severe, 5=critical
+- exploitability: 0=impossible, 1=very hard, 2=hard, 3=moderate, 4=easy, 5=trivial
+- likelihood: 0=never, 1=rare, 2=unlikely, 3=possible, 4=likely, 5=certain
+- blast_radius: 0=none, 1=local, 2=component, 3=module, 4=system, 5=entire app
+- evidence_strength: 0=none, 1=weak, 2=moderate, 3=strong, 4=very strong, 5=conclusive
+
+Compute EXACTLY:
 severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
-Set severity_proposed:
+
+Set severity_proposed using EXACT thresholds:
 - "critical" if severity_score ≥ 3.60 AND evidence_strength ≥ 3
 - otherwise "suggestion"
-Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").`,
+
+Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").
+
+CRITICAL: Apply these exact same criteria and thresholds to identical code patterns.`,
 
   // Common evidence requirements
   evidenceRequirements: `Evidence Requirements (for EACH issue)
@@ -30149,7 +30161,9 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
 - URL.createObjectURL used with untrusted blobs without revocation/validation.
 - Missing CSRF protection on same-origin state-changing fetch/XHR.
-- XSS via unescaped user input rendered into the DOM/HTML.`,
+- XSS via unescaped user input rendered into the DOM/HTML.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
 
   python: `Auto-critical overrides (regardless of score)
 - eval/exec on user input.
@@ -30162,7 +30176,7 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - CSRF disabled/missing for state-changing endpoints (web apps).
 - Path traversal in file I/O without canonicalization/validation.
 - Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
-- Secrets/credentials embedded in code or .py files.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
 - Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
 
   java: `Auto-critical overrides (regardless of score)
@@ -30176,7 +30190,9 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - XSS/HTML injection in server-side rendered responses due to missing escaping.
 - CSRF disabled for state-changing endpoints without compensating controls.
 - Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
-- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.`,
+- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
 
   php: `Auto-critical overrides (regardless of score)
 - eval/assert/create_function on user input.
@@ -30190,7 +30206,8 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - CSRF middleware disabled or missing on state-changing routes.
 - Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
 - Path traversal in file operations without sanitization.
-- Secrets/credentials in code or committed configs.`
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`
 };
 
 /**
