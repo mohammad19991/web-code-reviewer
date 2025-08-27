@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
       
       - name: DeepReview
-        uses: tajawal/web-code-review@v1
+        uses: tajawal/web-code-reviewer@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
         with:
@@ -58,7 +58,7 @@ jobs:
 ```yaml
 # JavaScript/TypeScript Review
 - name: Review JavaScript Code
-  uses: tajawal/web-code-review@v1
+  uses: tajawal/web-code-reviewer@latest
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
@@ -70,7 +70,7 @@ jobs:
 
 # Python Review
 - name: Review Python Code
-  uses: tajawal/web-code-review@v1
+  uses: tajawal/web-code-reviewer@latest
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
@@ -82,7 +82,7 @@ jobs:
 
 # Java Review
 - name: Review Java Code
-  uses: tajawal/web-code-review@v1
+  uses: tajawal/web-code-reviewer@latest
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
@@ -94,7 +94,7 @@ jobs:
 
 # PHP Review
 - name: Review PHP Code
-  uses: tajawal/web-code-review@v1
+  uses: tajawal/web-code-reviewer@latest
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
@@ -123,7 +123,7 @@ jobs:
           fetch-depth: 0
       
       - name: DeepReview
-        uses: tajawal/web-code-review@v1
+        uses: tajawal/web-code-reviewer@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
         with:
@@ -407,7 +407,7 @@ Make sure to include the required environment variables in your workflow:
 
 ```yaml
 - name: DeepReview
-  uses: tajawal/web-code-review@v1
+  uses: tajawal/web-code-reviewer@latest
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
   with:
@@ -473,6 +473,34 @@ ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.log,.tmp,.cache,.swp'
 # Minimal ignore (only essential patterns)
 ignore_patterns: '.json,.md,.lock'
 ```
+```
+
+## 🏷️ Version Management
+
+### Automated Latest Tag Updates
+
+This repository includes automated workflows to keep the `latest` tag up-to-date:
+
+#### Automatic Updates
+- **Trigger**: Whenever a new version tag is pushed (e.g., `v1.13.0`)
+- **Workflow**: `.github/workflows/update-latest-tag.yml`
+- **Action**: Automatically updates the `latest` tag to point to the newest version
+
+#### Manual Updates
+- **Trigger**: Manual workflow dispatch from GitHub Actions tab
+- **Workflow**: `.github/workflows/manual-update-latest.yml`
+- **Options**: 
+  - Auto-detect latest version: Use `auto` as input
+  - Specify version: Provide specific version tag (e.g., `v1.12.0`)
+
+### Usage Options
+
+```yaml
+# Use latest version (automatically updated)
+- uses: tajawal/web-code-reviewer@latest
+
+# Use specific version (for stability)
+- uses: tajawal/web-code-reviewer@v1.12.0
 ```
 
 ## 🛠️ Development

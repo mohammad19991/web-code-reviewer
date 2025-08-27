@@ -1,0 +1,95 @@
+name: Manual Update Latest Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to set as latest (e.g., v1.12.0)'
+        required: true
+        default: 'auto'
+        type: string
+
+jobs:
+  update-latest:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for tag operations
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      
+      - name: Determine target version
+        id: target-version
+        run: |
+          if [ "${{ github.event.inputs.version }}" = "auto" ]; then
+            # Get the most recent version tag
+            LATEST_VERSION=$(git tag --list "v*" --sort=-version:refname | head -1)
+            echo "target_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+            echo "Auto-detected latest version: $LATEST_VERSION"
+          else
+            # Use the provided version
+            echo "target_version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "Using provided version: ${{ github.event.inputs.version }}"
+          fi
+      
+      - name: Validate version tag exists
+        run: |
+          VERSION=${{ steps.target-version.outputs.target_version }}
+          
+          # Check if the tag exists
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "❌ Error: Tag '$VERSION' does not exist!"
+            echo "Available version tags:"
+            git tag --list "v*" --sort=-version:refname | head -10
+            exit 1
+          fi
+          
+          echo "✅ Tag '$VERSION' exists and is valid"
+      
+      - name: Update latest tag
+        run: |
+          VERSION=${{ steps.target-version.outputs.target_version }}
+          
+          # Delete local latest tag if it exists
+          git tag -d latest 2>/dev/null || true
+          
+          # Create new latest tag pointing to target version
+          git tag latest "$VERSION"
+          
+          # Push the latest tag (force push to update it)
+          git push origin latest --force
+          
+          echo "✅ Updated 'latest' tag to point to $VERSION"
+      
+      - name: Verify latest tag
+        run: |
+          VERSION=${{ steps.target-version.outputs.target_version }}
+          
+          # Fetch all tags to verify
+          git fetch --tags
+          
+          # Show what latest tag points to
+          LATEST_COMMIT=$(git rev-parse latest)
+          TARGET_COMMIT=$(git rev-parse "$VERSION")
+          
+          echo "Latest tag commit: $LATEST_COMMIT"
+          echo "Target version commit: $TARGET_COMMIT"
+          
+          if [ "$LATEST_COMMIT" = "$TARGET_COMMIT" ]; then
+            echo "✅ Latest tag successfully updated to $VERSION!"
+          else
+            echo "❌ Latest tag update failed!"
+            exit 1
+          fi
+      
+      - name: Show all version tags
+        run: |
+          echo "📋 All available version tags (sorted by recency):"
+          git tag --list "v*" --sort=-version:refname | head -10
