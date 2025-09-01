@@ -34296,7 +34296,7 @@ const ReviewService = __nccwpck_require__(9962);
 const LoggingService = __nccwpck_require__(8689);
 
 /**
- * GitHub Actions Code Reviewer - Main orchestrator
+ * GitHub Actions Deep Reviewer - Main orchestrator
  * Now uses modular services for better maintainability
  */
 class GitHubActionsReviewer {
