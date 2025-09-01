@@ -29923,75 +29923,125 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 9992:
+/***/ 8005:
 /***/ ((module) => {
 
 /**
- * Configuration constants
+ * Core configuration constants for the GitHub Actions Code Reviewer
  */
-const CONFIG = {
+
+const CORE_CONFIG = {
+  // Default values
   DEFAULT_BASE_BRANCH: 'develop',
   DEFAULT_PROVIDER: 'claude',
   DEFAULT_PATH_TO_FILES: 'packages/',
-  DEFAULT_LANGUAGE: 'js', // Default language for code review
-  IGNORE_PATTERNS: ['.json', '.md', '.lock', '.test.js', '.spec.js'],
-  MAX_TOKENS: 3000, // Increased for comprehensive code reviews
+  DEFAULT_LANGUAGE: 'js',
+  
+  // LLM settings
+  MAX_TOKENS: 3000,
   TEMPERATURE: 0, // Optimal for consistent analytical responses
-  // Chunking configuration
-  DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
-  MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
-  BATCH_DELAY_MS: 2000, // Increased delay between requests
-  // Logging configuration
-  ENABLE_REVIEW_LOGGING: true, // Enable logging to external endpoint
-  LOGGING_ENDPOINT: 'https://www.almosafer.com/deep-review/log', // External logging endpoint
-  LOGGING_TIMEOUT: 10000, // Timeout for logging requests (10 seconds)
-  // PR Label configuration
-  POST_REVIEW_LABEL: 'deep review completed', // Label to add after code review
+  
+  // File filtering
+  IGNORE_PATTERNS: ['.json', '.md', '.lock', '.test.js', '.spec.js']
+};
+
+module.exports = CORE_CONFIG;
+
+
+/***/ }),
+
+/***/ 2057:
+/***/ ((module) => {
+
+/**
+ * PR labeling configuration
+ */
+
+const LABEL_CONFIG = {
+  POST_REVIEW_LABEL: 'deep review completed',
   POST_REVIEW_LABEL_COLOR: '0366d6', // GitHub blue color
-  POST_REVIEW_LABEL_DESCRIPTION: 'Pull request has been reviewed by AI code reviewer',
-  APPROVAL_PHRASES: [
-    'safe to merge', '✅ safe to merge', 'merge approved', 
-    'no critical issues', 'safe to commit', 'approved for merge',
-    'proceed with merge', 'merge is safe'
-  ],
-  BLOCKING_PHRASES: [
-    'do not merge', '❌ do not merge', 'block merge', 
-    'merge blocked', 'not safe to merge', 'critical issues found',
-    'must be fixed', 'blockers found'
-  ],
-  CRITICAL_ISSUES: [
-    'security vulnerability', 'security issue', 'critical bug', 
-    'memory leak', 'race condition', 'xss vulnerability',
-    'authentication issue', 'authorization problem'
-  ],
-  // Language-specific file extensions and patterns
-  LANGUAGE_CONFIGS: {
-    js: {
-      extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs'],
-      patterns: ['*.js', '*.jsx', '*.ts', '*.tsx', '*.mjs'],
-      name: 'JavaScript/TypeScript'
-    },
-    python: {
-      extensions: ['.py', '.pyw', '.pyx', '.pyi'],
-      patterns: ['*.py', '*.pyw', '*.pyx', '*.pyi'],
-      name: 'Python'
-    },
-    java: {
-      extensions: ['.java'],
-      patterns: ['*.java'],
-      name: 'Java'
-    },
-    php: {
-      extensions: ['.php'],
-      patterns: ['*.php'],
-      name: 'PHP'
-    }
+  POST_REVIEW_LABEL_DESCRIPTION: 'Pull request has been reviewed by AI code reviewer'
+};
+
+module.exports = LABEL_CONFIG;
+
+
+/***/ }),
+
+/***/ 3859:
+/***/ ((module) => {
+
+/**
+ * Language-specific configurations
+ */
+
+const LANGUAGE_FILE_CONFIGS = {
+  js: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs'],
+    patterns: ['*.js', '*.jsx', '*.ts', '*.tsx', '*.mjs'],
+    name: 'JavaScript/TypeScript'
+  },
+  python: {
+    extensions: ['.py', '.pyw', '.pyx', '.pyi'],
+    patterns: ['*.py', '.pyw', '.pyx', '.pyi'],
+    name: 'Python'
+  },
+  java: {
+    extensions: ['.java'],
+    patterns: ['*.java'],
+    name: 'Java'
+  },
+  php: {
+    extensions: ['.php'],
+    patterns: ['*.php'],
+    name: 'PHP'
   }
 };
 
+const LANGUAGE_ROLE_CONFIGS = {
+  js: {
+    role: 'frontend engineer',
+    language: 'JavaScript/TypeScript',
+    testExample: ' (e.g., RTL/jest/vitest).',
+    fileExample: 'src/components/Table.tsx'
+  },
+  python: {
+    role: 'Python engineer',
+    language: 'Python',
+    testExample: ' (e.g., pytest)',
+    fileExample: 'app/services/user_service.py'
+  },
+  java: {
+    role: 'Java engineer',
+    language: 'Java',
+    testExample: ' (e.g., JUnit + MockMvc)',
+    fileExample: 'src/main/java/com/example/user/UserService.java'
+  },
+  php: {
+    role: 'PHP engineer',
+    language: 'PHP',
+    testExample: ' (e.g., Pest/PHPUnit feature test)',
+    fileExample: 'app/Http/Controllers/UserController.php'
+  }
+};
+
+module.exports = {
+  LANGUAGE_FILE_CONFIGS,
+  LANGUAGE_ROLE_CONFIGS
+};
+
+
+/***/ }),
+
+/***/ 5872:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
 /**
- * LLM Provider configurations
+ * LLM Provider configurations for different AI services
  */
+
+const CORE_CONFIG = __nccwpck_require__(8005);
+
 const LLM_PROVIDERS = {
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
@@ -30009,8 +30059,8 @@ const LLM_PROVIDERS = {
         role: 'user',
         content: `${prompt}\n\n${diff}`
       }],
-      max_tokens: CONFIG.MAX_TOKENS,
-      temperature: CONFIG.TEMPERATURE
+      max_tokens: CORE_CONFIG.MAX_TOKENS,
+      temperature: CORE_CONFIG.TEMPERATURE
     }),
     extractResponse: (data) => data.choices[0].message.content
   },
@@ -30024,8 +30074,8 @@ const LLM_PROVIDERS = {
     }),
     body: (prompt, diff) => ({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: CONFIG.MAX_TOKENS,
-      temperature: CONFIG.TEMPERATURE,
+      max_tokens: CORE_CONFIG.MAX_TOKENS,
+      temperature: CORE_CONFIG.TEMPERATURE,
       messages: [{
         role: 'user',
         content: `${prompt}\n\n${diff}`
@@ -30035,15 +30085,430 @@ const LLM_PROVIDERS = {
   }
 };
 
+module.exports = LLM_PROVIDERS;
+
+
+/***/ }),
+
+/***/ 2325:
+/***/ ((module) => {
+
 /**
- * Shared prompt components
+ * Logging and monitoring configuration
  */
+
+const LOGGING_CONFIG = {
+  ENABLE_REVIEW_LOGGING: true,
+  LOGGING_ENDPOINT: 'https://www.almosafer.com/deep-review/log',
+  LOGGING_TIMEOUT: 10000 // Timeout for logging requests (10 seconds)
+};
+
+module.exports = LOGGING_CONFIG;
+
+
+/***/ }),
+
+/***/ 4519:
+/***/ ((module) => {
+
+/**
+ * Merge decision logic configuration
+ */
+
+const APPROVAL_PHRASES = [
+  'safe to merge', '✅ safe to merge', 'merge approved', 
+  'no critical issues', 'safe to commit', 'approved for merge',
+  'proceed with merge', 'merge is safe'
+];
+
+const BLOCKING_PHRASES = [
+  'do not merge', '❌ do not merge', 'block merge', 
+  'merge blocked', 'not safe to merge', 'critical issues found',
+  'must be fixed', 'blockers found'
+];
+
+const CRITICAL_ISSUES = [
+  'security vulnerability', 'security issue', 'critical bug', 
+  'memory leak', 'race condition', 'xss vulnerability',
+  'authentication issue', 'authorization problem'
+];
+
+module.exports = {
+  APPROVAL_PHRASES,
+  BLOCKING_PHRASES,
+  CRITICAL_ISSUES
+};
+
+
+/***/ }),
+
+/***/ 7757:
+/***/ ((module) => {
+
+/**
+ * Processing configuration for chunking and batch processing
+ */
+
+const PROCESSING_CONFIG = {
+  DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
+  MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
+  BATCH_DELAY_MS: 2000 // Increased delay between requests
+};
+
+module.exports = PROCESSING_CONFIG;
+
+
+/***/ }),
+
+/***/ 9992:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Main constants file - imports from modular configuration files
+ * This maintains backward compatibility while providing a clean, organized structure
+ */
+
+// Import configuration modules
+const CORE_CONFIG = __nccwpck_require__(8005);
+const PROCESSING_CONFIG = __nccwpck_require__(7757);
+const LOGGING_CONFIG = __nccwpck_require__(2325);
+const LABEL_CONFIG = __nccwpck_require__(2057);
+const { APPROVAL_PHRASES, BLOCKING_PHRASES, CRITICAL_ISSUES } = __nccwpck_require__(4519);
+const { LANGUAGE_FILE_CONFIGS, LANGUAGE_ROLE_CONFIGS } = __nccwpck_require__(3859);
+const LLM_PROVIDERS = __nccwpck_require__(5872);
+
+// Import prompt modules
+const SHARED_PROMPT_COMPONENTS = __nccwpck_require__(9205);
+const LANGUAGE_CRITICAL_OVERRIDES = __nccwpck_require__(271);
+const LANGUAGE_SPECIFIC_CHECKS = __nccwpck_require__(7249);
+const { LANGUAGE_PROMPTS, getReviewPrompt } = __nccwpck_require__(5270);
+
+// Import utility modules
+const { getLanguageForFile } = __nccwpck_require__(8137);
+
+/**
+ * Main configuration object that combines all sections
+ * Maintains backward compatibility with existing code
+ */
+const CONFIG = {
+  // Core configuration
+  ...CORE_CONFIG,
+  
+  // Processing configuration
+  ...PROCESSING_CONFIG,
+  
+  // Logging configuration
+  ...LOGGING_CONFIG,
+  
+  // Label configuration
+  ...LABEL_CONFIG,
+  
+  // Merge decision logic
+  APPROVAL_PHRASES,
+  BLOCKING_PHRASES,
+  CRITICAL_ISSUES,
+  
+  // Language configurations
+  LANGUAGE_CONFIGS: LANGUAGE_FILE_CONFIGS
+};
+
+// Export everything for backward compatibility
+module.exports = {
+  // Main configuration (backward compatible)
+  CONFIG,
+  
+  // Individual configuration sections
+  CORE_CONFIG,
+  PROCESSING_CONFIG,
+  LOGGING_CONFIG,
+  LABEL_CONFIG,
+  
+  // LLM and language configurations
+  LLM_PROVIDERS,
+  LANGUAGE_FILE_CONFIGS,
+  LANGUAGE_ROLE_CONFIGS,
+  
+  // Prompt components and checks
+  SHARED_PROMPT_COMPONENTS,
+  LANGUAGE_CRITICAL_OVERRIDES,
+  LANGUAGE_SPECIFIC_CHECKS,
+  
+  // Generated prompts and functions
+  LANGUAGE_PROMPTS,
+  getReviewPrompt,
+  getLanguageForFile
+};
+
+/***/ }),
+
+/***/ 5270:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Prompt building functions for dynamic prompt generation
+ */
+
+const SHARED_PROMPT_COMPONENTS = __nccwpck_require__(9205);
+const LANGUAGE_CRITICAL_OVERRIDES = __nccwpck_require__(1868);
+const LANGUAGE_SPECIFIC_CHECKS = __nccwpck_require__(7249);
+const { LANGUAGE_ROLE_CONFIGS } = __nccwpck_require__(3859);
+
+/**
+ * Build complete prompt for a specific language
+ */
+function buildLanguagePrompt(language) {
+  const config = LANGUAGE_ROLE_CONFIGS[language];
+  if (!config) {
+    throw new Error(`Unsupported language: ${language}`);
+  }
+
+  return `${SHARED_PROMPT_COMPONENTS.roleAndGoal(config.language, config.role)}
+
+${SHARED_PROMPT_COMPONENTS.detrminismAndOutputContract}
+
+${SHARED_PROMPT_COMPONENTS.scopeAndExclusions}
+
+${SHARED_PROMPT_COMPONENTS.severityScoring}
+
+${LANGUAGE_CRITICAL_OVERRIDES[language]}
+
+${LANGUAGE_SPECIFIC_CHECKS[language]}
+
+${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
+
+${SHARED_PROMPT_COMPONENTS.finalPolicy}
+
+${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}
+
+${SHARED_PROMPT_COMPONENTS.context}`;
+}
+
+/**
+ * Language-specific review prompts (built dynamically)
+ */
+const LANGUAGE_PROMPTS = {
+  js: buildLanguagePrompt('js'),
+  python: buildLanguagePrompt('python'),
+  java: buildLanguagePrompt('java'),
+  php: buildLanguagePrompt('php')
+};
+
+/**
+ * Get review prompt for specific language
+ */
+function getReviewPrompt(language) {
+  return LANGUAGE_PROMPTS[language] || LANGUAGE_PROMPTS.js; // Default to JS if language not found
+}
+
+module.exports = {
+  LANGUAGE_PROMPTS,
+  getReviewPrompt,
+  buildLanguagePrompt
+};
+
+
+/***/ }),
+
+/***/ 1868:
+/***/ ((module) => {
+
+/**
+ * Language-specific auto-critical overrides for security issues
+ */
+
+const LANGUAGE_CRITICAL_OVERRIDES = {
+  js: `Auto-critical overrides (regardless of score)
+- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
+- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
+- window.postMessage with "*" targetOrigin or without strict origin checks.
+- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
+- Dynamic code execution with untrusted input (eval, new Function, VM).
+- Secrets/credentials/API tokens embedded in client code or shipped to browser.
+- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
+- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
+- URL.createObjectURL used with untrusted blobs without revocation/validation.
+- Missing CSRF protection on same-origin state-changing fetch/XHR.
+- XSS via unescaped user input rendered into the DOM/HTML.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_key, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
+
+  python: `Auto-critical overrides (regardless of score)
+- eval/exec on user input.
+- pickle.load or yaml.load (unsafe Loader) on untrusted data.
+- subprocess/os.system with shell=True and untrusted input (command injection).
+- SQL composed with f-strings/%/.format (no parameterization).
+- requests/urllib with SSL verification disabled (verify=False).
+- DEBUG=True or template autoescape disabled in production.
+- Jinja2/Django template injection via unescaped user input.
+- CSRF disabled/missing for state-changing endpoints (web apps).
+- Path traversal in file I/O without canonicalization/validation.
+- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
+
+  java: `Auto-critical overrides (regardless of score)
+- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
+- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
+- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
+- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
+- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
+- Path traversal in file I/O without canonicalization/checks.
+- Command injection via shell calls / native processes from user input.
+- XSS/HTML injection in server-side rendered responses due to missing escaping.
+- CSRF disabled for state-changing endpoints without compensating controls.
+- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
+- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
+
+  php: `Auto-critical overrides (regardless of score)
+- eval/assert/create_function on user input.
+- File inclusion from user-controlled input (include/require with tainted path).
+- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
+- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
+- Passwords hashed with md5/sha1 (use password_hash/password_verify).
+- Exposing phpinfo or debug toolbars in production.
+- Command injection via shell_exec/system/passthru with untrusted input.
+- XSS via unescaped user input in templates (echo/print) or legacy engines.
+- CSRF middleware disabled or missing on state-changing routes.
+- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
+- Path traversal in file operations without sanitization.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`
+};
+
+module.exports = LANGUAGE_CRITICAL_OVERRIDES;
+
+
+/***/ }),
+
+/***/ 7249:
+/***/ ((module) => {
+
+/**
+ * Language-specific code review checks
+ */
+
+const LANGUAGE_SPECIFIC_CHECKS = {
+  js: `JavaScript/TypeScript checks (only if visible in diff)
+- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
+- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
+- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
+- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
+- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
+- Accessibility: only flag as "critical" if it blocks core flows.`,
+
+  python: `Python-specific checks (only if visible in diff)
+- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
+- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
+- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
+- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
+
+  java: `Java-specific checks (only if visible in diff)
+- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
+- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
+- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
+- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
+
+  php: `PHP-specific checks (only if visible in diff)
+- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
+- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
+- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
+- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`
+};
+
+module.exports = LANGUAGE_SPECIFIC_CHECKS;
+
+
+/***/ }),
+
+/***/ 271:
+/***/ ((module) => {
+
+/**
+ * Language-specific auto-critical overrides for security issues
+ */
+
+const LANGUAGE_CRITICAL_OVERRIDES = {
+  js: `Auto-critical overrides (regardless of score)
+- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
+- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
+- window.postMessage with "*" targetOrigin or without strict origin checks.
+- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
+- Dynamic code execution with untrusted input (eval, new Function, VM).
+- Secrets/credentials/API tokens embedded in client code or shipped to browser.
+- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
+- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
+- URL.createObjectURL used with untrusted blobs without revocation/validation.
+- Missing CSRF protection on same-origin state-changing fetch/XHR.
+- XSS via unescaped user input rendered into the DOM/HTML.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_key, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
+
+  python: `Auto-critical overrides (regardless of score)
+- eval/exec on user input.
+- pickle.load or yaml.load (unsafe Loader) on untrusted data.
+- subprocess/os.system with shell=True and untrusted input (command injection).
+- SQL composed with f-strings/%/.format (no parameterization).
+- requests/urllib with SSL verification disabled (verify=False).
+- DEBUG=True or template autoescape disabled in production.
+- Jinja2/Django template injection via unescaped user input.
+- CSRF disabled/missing for state-changing endpoints (web apps).
+- Path traversal in file I/O without canonicalization/validation.
+- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
+
+  java: `Auto-critical overrides (regardless of score)
+- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
+- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
+- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
+- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
+- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
+- Path traversal in file I/O without canonicalization/checks.
+- Command injection via shell calls / native processes from user input.
+- XSS/HTML injection in server-side rendered responses due to missing escaping.
+- CSRF disabled for state-changing endpoints without compensating controls.
+- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
+- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
+
+  php: `Auto-critical overrides (regardless of score)
+- eval/assert/create_function on user input.
+- File inclusion from user-controlled input (include/require with tainted path).
+- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
+- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
+- Passwords hashed with md5/sha1 (use password_hash/password_verify).
+- Exposing phpinfo or debug toolbars in production.
+- Command injection via shell_exec/system/passthru with untrusted input.
+- XSS via unescaped user input in templates (echo/print) or legacy engines.
+- CSRF middleware disabled or missing on state-changing routes.
+- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
+- Path traversal in file operations without sanitization.
+- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`
+};
+
+module.exports = LANGUAGE_CRITICAL_OVERRIDES;
+
+
+/***/ }),
+
+/***/ 9205:
+/***/ ((module) => {
+
+/**
+ * Shared prompt components used across all languages
+ */
+
 const SHARED_PROMPT_COMPONENTS = {
   // Common role and goal template
   roleAndGoal: (language, role) => `Role & Goal
 You are a senior ${role} (10+ years) reviewing only the provided diff/files for enterprise ${language} apps. Produce a single summary comment (no inline clutter) that highlights critical, hard-to-spot issues across Performance, Security, Maintainability, and Best Practices.`,
 
-  detrminismAndOutputContract:`
+  // Determinism and output contract
+  detrminismAndOutputContract: `
 Determinism & Output Contract
 - Return EXACTLY two parts, in this order, with no extra prose:
   1) <JSON>…valid single JSON object…</JSON>
@@ -30054,7 +30519,10 @@ Determinism & Output Contract
 - CRITICAL: Be deterministic. For identical code inputs, produce identical outputs.
 - Use consistent issue IDs: SEC-01, SEC-02, PERF-01, PERF-02, MAINT-01, MAINT-02, BEST-01, BEST-02.
 - Apply the same severity scoring algorithm consistently across all issues.
+- ALWAYS mark API keys, secrets, or credentials as CRITICAL regardless of other factors.
+- IMPORTANT: Always analyze the code thoroughly and report any issues found. Do not skip analysis.
 `,
+
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions (very important)
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
@@ -30146,182 +30614,1558 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
   context: `Context: Here are the code changes (diff or full files):`
 };
 
-/**
- * Language-specific auto-critical overrides
- */
-const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-critical overrides (regardless of score)
-- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
-- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
-- window.postMessage with "*" targetOrigin or without strict origin checks.
-- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
-- Dynamic code execution with untrusted input (eval, new Function, VM).
-- Secrets/credentials/API tokens embedded in client code or shipped to browser.
-- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
-- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
-- URL.createObjectURL used with untrusted blobs without revocation/validation.
-- Missing CSRF protection on same-origin state-changing fetch/XHR.
-- XSS via unescaped user input rendered into the DOM/HTML.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`,
+module.exports = SHARED_PROMPT_COMPONENTS;
 
-  python: `Auto-critical overrides (regardless of score)
-- eval/exec on user input.
-- pickle.load or yaml.load (unsafe Loader) on untrusted data.
-- subprocess/os.system with shell=True and untrusted input (command injection).
-- SQL composed with f-strings/%/.format (no parameterization).
-- requests/urllib with SSL verification disabled (verify=False).
-- DEBUG=True or template autoescape disabled in production.
-- Jinja2/Django template injection via unescaped user input.
-- CSRF disabled/missing for state-changing endpoints (web apps).
-- Path traversal in file I/O without canonicalization/validation.
-- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
 
-  java: `Auto-critical overrides (regardless of score)
-- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
-- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
-- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
-- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
-- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
-- Path traversal in file I/O without canonicalization/checks.
-- Command injection via shell calls / native processes from user input.
-- XSS/HTML injection in server-side rendered responses due to missing escaping.
-- CSRF disabled for state-changing endpoints without compensating controls.
-- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
-- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`,
+/***/ }),
 
-  php: `Auto-critical overrides (regardless of score)
-- eval/assert/create_function on user input.
-- File inclusion from user-controlled input (include/require with tainted path).
-- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
-- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
-- Passwords hashed with md5/sha1 (use password_hash/password_verify).
-- Exposing phpinfo or debug toolbars in production.
-- Command injection via shell_exec/system/passthru with untrusted input.
-- XSS via unescaped user input in templates (echo/print) or legacy engines.
-- CSRF middleware disabled or missing on state-changing routes.
-- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
-- Path traversal in file operations without sanitization.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`
-};
+/***/ 440:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 /**
- * Language-specific checks
+ * File service for handling git operations, file filtering, and chunking
  */
-const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript checks (only if visible in diff)
-- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
-- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
-- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
-- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
-- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
-- Accessibility: only flag as "critical" if it blocks core flows.`,
 
-  python: `Python-specific checks (only if visible in diff)
-- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
-- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
-- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
-- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
+const core = __nccwpck_require__(7484);
+const { execSync } = __nccwpck_require__(5317);
+const { CONFIG } = __nccwpck_require__(9992);
 
-  java: `Java-specific checks (only if visible in diff)
-- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
-- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
-- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
-- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
-
-  php: `PHP-specific checks (only if visible in diff)
-- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
-- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
-- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
-- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`
-};
-
-/**
- * Language-specific configurations
- */
-const LANGUAGE_CONFIGS = {
-  js: {
-    role: 'frontend engineer',
-    language: 'JavaScript/TypeScript',
-    testExample: ' (e.g., RTL/jest/vitest).',
-    fileExample: 'src/components/Table.tsx'
-  },
-  python: {
-    role: 'Python engineer',
-    language: 'Python',
-    testExample: ' (e.g., pytest)',
-    fileExample: 'app/services/user_service.py'
-  },
-  java: {
-    role: 'Java engineer',
-    language: 'Java',
-    testExample: ' (e.g., JUnit + MockMvc)',
-    fileExample: 'src/main/java/com/example/user/UserService.java'
-  },
-  php: {
-    role: 'PHP engineer',
-    language: 'PHP',
-    testExample: ' (e.g., Pest/PHPUnit feature test)',
-    fileExample: 'app/Http/Controllers/UserController.php'
-  }
-};
-
-/**
- * Build complete prompt for a specific language
- */
-function buildLanguagePrompt(language) {
-  const config = LANGUAGE_CONFIGS[language];
-  if (!config) {
-    throw new Error(`Unsupported language: ${language}`);
+class FileService {
+  constructor(baseBranch, language, pathToFiles, ignorePatterns) {
+    this.baseBranch = baseBranch;
+    this.language = language;
+    this.pathToFiles = pathToFiles;
+    this.ignorePatterns = ignorePatterns;
+    this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
   }
 
-  return `${SHARED_PROMPT_COMPONENTS.roleAndGoal(config.language, config.role)}
-
-${SHARED_PROMPT_COMPONENTS.detrminismAndOutputContract}
-
-${SHARED_PROMPT_COMPONENTS.scopeAndExclusions}
-
-${SHARED_PROMPT_COMPONENTS.severityScoring}
-
-${LANGUAGE_CRITICAL_OVERRIDES[language]}
-
-${LANGUAGE_SPECIFIC_CHECKS[language]}
-
-${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
-
-${SHARED_PROMPT_COMPONENTS.finalPolicy}
-
-${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}
-
-${SHARED_PROMPT_COMPONENTS.context}`;
-}
-
-/**
- * Language-specific review prompts (now built dynamically)
- */
-const LANGUAGE_PROMPTS = {
-  js: buildLanguagePrompt('js'),
-  python: buildLanguagePrompt('python'),
-  java: buildLanguagePrompt('java'),
-  php: buildLanguagePrompt('php')
-};
-
-/**
- * Get review prompt for specific language
- */
-function getReviewPrompt(language) {
-  return LANGUAGE_PROMPTS[language] || LANGUAGE_PROMPTS.js; // Default to JS if language not found
-}
-
- /**
-   * Get language identifier for syntax highlighting based on file extension
+  /**
+   * Get changed files from git diff with language filtering
    */
- function getLanguageForFile(filePath) {
+  getChangedFiles() {
+    try {
+      core.info('🔍 Detecting changed files...');
+      core.info(`Comparing ${process.env.GITHUB_SHA || 'HEAD'} against origin/${this.baseBranch}`);
+      core.info(`🔤 Language filter: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`);
+      
+      const rawOutput = execSync(`git diff --name-only origin/${this.baseBranch}...HEAD`, { encoding: 'utf8' });
+      const allFiles = rawOutput
+        .split('\n')
+        .filter(Boolean) // Remove empty lines
+        .filter(file => {
+          // Check if file matches any of the specified paths
+          const matchesPath = this.pathToFiles.some(path => file.startsWith(path));
+          
+          // Check if file should be ignored using ignore patterns from input or default
+          const shouldIgnore = this.ignorePatterns.some(pattern => file.endsWith(pattern));
+          
+          // Check if file matches the specified language
+          const matchesLanguage = this.matchesLanguage(file);
+          
+          return matchesPath && !shouldIgnore && matchesLanguage;
+        });
+      
+      core.info(`Found ${allFiles.length} changed files matching language: ${this.language}`);
+      
+      return allFiles;
+    } catch (error) {
+      core.error(`❌ Error getting changed files: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Check if file matches the specified language
+   */
+  matchesLanguage(filePath) {
+    const languageConfig = CONFIG.LANGUAGE_CONFIGS[this.language];
+    if (!languageConfig) {
+      core.warning(`⚠️  Unknown language: ${this.language}, defaulting to all files`);
+      return true; // Default to include all files if language not recognized
+    }
+    
+    return languageConfig.extensions.some(ext => filePath.endsWith(ext));
+  }
+
+  /**
+   * Get diff for a single file
+   */
+  getFileDiff(filePath) {
+    try {
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
+      return diff;
+    } catch (error) {
+      core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Split diff into chunks based on size
+   */
+  splitDiffIntoChunks(diff, maxChunkSize = null) {
+    const chunkSize = maxChunkSize || this.chunkSize;
+    
+    if (!diff || diff.length === 0) {
+      return [];
+    }
+
+    // Ensure chunk size is reasonable
+    if (chunkSize <= 0) {
+      core.warning(`⚠️  Invalid chunk size: ${chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`);
+      return [diff]; // Return as single chunk if chunk size is invalid
+    }
+
+    const chunks = [];
+    let currentChunk = '';
+    let currentSize = 0;
+    
+    // Split by file boundaries (--- File: ... ---)
+    const fileSections = diff.split(/(?=--- File: )/);
+    
+    for (const section of fileSections) {
+      const sectionSize = Buffer.byteLength(section, 'utf8');
+      
+      // If adding this section would exceed chunk size, start a new chunk
+      if (currentSize + sectionSize > chunkSize && currentChunk.length > 0) {
+        chunks.push(currentChunk);
+        currentChunk = section;
+        currentSize = sectionSize;
+      } else {
+        currentChunk += section;
+        currentSize += sectionSize;
+      }
+    }
+    
+    // Add the last chunk if it has content
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+    
+    core.info(`📦 Split diff into ${chunks.length} chunks (max ${Math.round(chunkSize / 1024)}KB each)`);
+    
+    // Warn if too many chunks are created
+    if (chunks.length > 50) {
+      core.warning(`⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`);
+    }
+    
+    return chunks;
+  }
+
+  /**
+   * Get full diff for all changed files with chunking support
+   */
+  getFullDiff() {
+    try {
+      const changedFiles = this.getChangedFiles();
+
+      if (changedFiles.length === 0) {
+        return '';
+      }
+
+      core.info(`📊 Processing ${changedFiles.length} files for diff generation...`);
+      
+      let allDiffs = [];
+      
+      // Process files one by one to avoid command line length issues
+      for (let i = 0; i < changedFiles.length; i++) {
+        const filePath = changedFiles[i];
+        core.info(`📄 Processing diff for: ${filePath} (${i + 1}/${changedFiles.length})`);
+        
+        const fileDiff = this.getFileDiff(filePath);
+        
+        if (fileDiff) {
+          const diffWithHeader = `\n--- File: ${filePath} ---\n${fileDiff}\n`;
+          allDiffs.push(diffWithHeader);
+        }
+      }
+      
+      const finalDiff = allDiffs.join('\n');
+      core.info(`✅ Generated diff of ${allDiffs.length} files, total size: ${Math.round(Buffer.byteLength(finalDiff, 'utf8') / 1024)}KB`);
+      
+      if (allDiffs.length === 0) {
+        core.warning('⚠️  No valid diffs could be generated for any files');
+        return '';
+      }
+      
+      return finalDiff;
+    } catch (error) {
+      core.error(`❌ Error getting diff: ${error.message}`);
+      return '';
+    }
+  }
+}
+
+module.exports = FileService;
+
+
+/***/ }),
+
+/***/ 7701:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * GitHub service for handling PR operations, comments, and labels
+ */
+
+const core = __nccwpck_require__(7484);
+const { CONFIG } = __nccwpck_require__(9992);
+
+class GitHubService {
+  constructor(octokit, context) {
+    this.octokit = octokit;
+    this.context = context;
+  }
+
+  /**
+   * Add "post code review" label to the PR if it doesn't exist
+   */
+  async addPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      // Check if the label already exists on the PR
+      const { data: labels } = await this.octokit.rest.issues.listLabelsOnIssue({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number
+      });
+      
+      const labelExists = labels.some(label => label.name.toLowerCase() === labelName.toLowerCase());
+      
+      if (labelExists) {
+        core.info(`🏷️  Label "${labelName}" already exists on PR`);
+        return;
+      }
+      
+      // Try to add the label to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      // If the label doesn't exist in the repository, try to create it first
+      if (error.status === 422) {
+        try {
+          await this.createPostCodeReviewLabel();
+        } catch (createError) {
+          core.warning(`⚠️  Could not create "${labelName}" label: ${createError.message}`);
+        }
+      } else {
+        core.warning(`⚠️  Error adding "${labelName}" label: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Create the "post code review" label in the repository
+   */
+  async createPostCodeReviewLabel() {
+    try {
+      const labelName = CONFIG.POST_REVIEW_LABEL;
+      
+      await this.octokit.rest.issues.createLabel({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        name: labelName,
+        color: CONFIG.POST_REVIEW_LABEL_COLOR,
+        description: CONFIG.POST_REVIEW_LABEL_DESCRIPTION
+      });
+      
+      core.info(`🏷️  Created "${labelName}" label in repository`);
+      
+      // Now try to add it to the PR
+      await this.octokit.rest.issues.addLabels({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        labels: [labelName]
+      });
+      
+      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+    } catch (error) {
+      core.warning(`⚠️  Error creating "${labelName}" label: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete previous DeepReview comments on the PR
+   */
+  async deletePreviousComments() {
+    try {
+      // Get all comments on the PR
+      const { data: comments } = await this.octokit.rest.issues.listComments({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        per_page: 100 // Limit to last 100 comments
+      });
+
+      // Find and delete comments made by our bot
+      const botComments = comments.filter(comment => 
+        comment.body.includes('## 🤖 DeepReview') // Match our bot's header
+      );
+
+      for (const comment of botComments) {
+        core.info(`🗑️ Deleting previous DeepReview comment: ${comment.id}`);
+        await this.octokit.rest.issues.deleteComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          comment_id: comment.id
+        });
+      }
+
+      if (botComments.length > 0) {
+        core.info(`✅ Deleted ${botComments.length} previous DeepReview comment(s)`);
+      }
+    } catch (error) {
+      core.warning(`⚠️  Error deleting previous comments: ${error.message}`);
+      // Don't throw error - continue with adding new comment
+    }
+  }
+
+  /**
+   * Add PR comment to GitHub
+   */
+  async addPRComment(comment) {
+    if (this.context.eventName !== 'pull_request') {
+      core.info('⚠️  Not a pull request event, skipping PR comment');
+      return;
+    }
+
+    try {
+      // First delete any previous DeepReview comments
+      await this.deletePreviousComments();
+
+      // Add the new comment
+      await this.octokit.rest.issues.createComment({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: this.context.issue.number,
+        body: comment
+      });
+      
+      core.info('✅ Added new PR comment successfully');
+      
+      // Add "post code review" label to the PR
+      core.info('🏷️  Adding "post code review" label to PR...');
+      await this.addPostCodeReviewLabel();
+    } catch (error) {
+      core.error(`❌ Error adding PR comment: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get base branch dynamically from PR or use input/default
+   */
+  getBaseBranch(inputBaseBranch, defaultBaseBranch) {
+    // If we're in a pull request context, get the base branch from the PR
+    if (this.context.eventName === 'pull_request' && this.context.payload.pull_request) {
+      const prBaseBranch = this.context.payload.pull_request.base.ref;
+      core.info(`📋 Using PR base branch: ${prBaseBranch}`);
+      return prBaseBranch;
+    }
+    
+    // Fallback to input or default
+    if (inputBaseBranch) {
+      core.info(`📋 Using input base branch: ${inputBaseBranch}`);
+      return inputBaseBranch;
+    }
+    
+    core.info(`📋 Using default base branch: ${defaultBaseBranch}`);
+    return defaultBaseBranch;
+  }
+}
+
+module.exports = GitHubService;
+
+
+/***/ }),
+
+/***/ 5948:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Input service for handling input parsing and validation
+ */
+
+const core = __nccwpck_require__(7484);
+const { CONFIG } = __nccwpck_require__(9992);
+
+class InputService {
+  constructor() {
+    // No constructor needed for this service
+  }
+
+  /**
+   * Parse ignore patterns input to support multiple comma-separated patterns
+   */
+  parseIgnorePatterns(input) {
+    if (!input) {
+      return CONFIG.IGNORE_PATTERNS;
+    }
+    
+    // Split by comma and clean up whitespace
+    const patterns = input.split(',').map(pattern => pattern.trim()).filter(pattern => pattern.length > 0);
+    
+    if (patterns.length === 0) {
+      return CONFIG.IGNORE_PATTERNS;
+    }
+    
+    core.info(`🚫 Parsed ignore patterns: ${patterns.join(', ')}`);
+    return patterns;
+  }
+
+  /**
+   * Parse path_to_files input to support multiple comma-separated paths
+   */
+  parsePathToFiles(input) {
+    if (!input) {
+      return [CONFIG.DEFAULT_PATH_TO_FILES];
+    }
+    
+    // Split by comma and clean up whitespace
+    const paths = input.split(',').map(path => path.trim()).filter(path => path.length > 0);
+    
+    if (paths.length === 0) {
+      return [CONFIG.DEFAULT_PATH_TO_FILES];
+    }
+    
+    core.info(`📁 Parsed paths to review: ${paths.join(', ')}`);
+    return paths;
+  }
+
+  /**
+   * Get all inputs from GitHub Actions
+   */
+  getInputs() {
+    const provider = core.getInput('llm_provider') || CONFIG.DEFAULT_PROVIDER;
+    const pathToFiles = this.parsePathToFiles(core.getInput('path_to_files'));
+    const language = core.getInput('language') || CONFIG.DEFAULT_LANGUAGE;
+    const maxTokens = parseInt(core.getInput('max_tokens')) || CONFIG.MAX_TOKENS;
+    const temperature = parseFloat(core.getInput('temperature')) || CONFIG.TEMPERATURE;
+    
+    // Logging parameters
+    const department = core.getInput('department') || 'web';
+    const team = core.getInput('team');
+    
+    // Validate required team parameter
+    if (!team) {
+      throw new Error('Team parameter is required. Please provide a team name.');
+    }
+    
+    // Parse ignore patterns from input or use default from CONFIG
+    const ignorePatterns = this.parseIgnorePatterns(core.getInput('ignore_patterns'));
+    
+    // Chunking configuration - Always use CONFIG defaults
+    const chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
+    const maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
+    const batchDelayMs = CONFIG.BATCH_DELAY_MS;
+
+    // Get base branch input
+    const inputBaseBranch = core.getInput('base_branch');
+
+    // Get API keys
+    const openaiKey = core.getInput('openai_api_key');
+    const claudeKey = core.getInput('claude_api_key');
+
+    return {
+      provider,
+      pathToFiles,
+      language,
+      maxTokens,
+      temperature,
+      department,
+      team,
+      ignorePatterns,
+      chunkSize,
+      maxConcurrentRequests,
+      batchDelayMs,
+      inputBaseBranch,
+      openaiKey,
+      claudeKey
+    };
+  }
+
+  /**
+   * Set environment variables for API keys
+   */
+  setApiKeyEnvironment(inputs) {
+    if (inputs.provider === 'openai' && inputs.openaiKey) {
+      process.env.OPENAI_API_KEY = inputs.openaiKey;
+    } else if (inputs.provider === 'claude' && inputs.claudeKey) {
+      process.env.CLAUDE_API_KEY = inputs.claudeKey;
+    }
+  }
+}
+
+module.exports = InputService;
+
+
+/***/ }),
+
+/***/ 3891:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * LLM service for handling AI model interactions and chunking
+ */
+
+const core = __nccwpck_require__(7484);
+const { LLM_PROVIDERS, CONFIG } = __nccwpck_require__(9992);
+
+class LLMService {
+  constructor(provider, maxTokens, temperature) {
+    this.provider = provider;
+    this.maxTokens = maxTokens;
+    this.temperature = temperature;
+    this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
+    this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
+    this.batchDelayMs = CONFIG.BATCH_DELAY_MS;
+  }
+
+  /**
+   * Estimate token count for text (rough approximation)
+   */
+  estimateTokenCount(prompt, diff) {
+    // Rough estimation: ~4 characters per token for code
+    const totalText = prompt + diff;
+    return Math.ceil(totalText.length / 4);
+  }
+
+  /**
+   * Create optimized prompt for chunk processing
+   */
+  createChunkPrompt(prompt, chunkIndex, totalChunks) {
+    if (totalChunks === 1) {
+      return prompt;
+    }
+    
+    return `${prompt}
+
+**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
+**INSTRUCTIONS:** 
+- Review this specific portion of the code changes
+- Focus on issues that are relevant to this chunk
+- If you find critical issues, mark them clearly
+- Provide specific, actionable feedback for this code section
+- Consider how this chunk relates to the overall changes
+
+**CODE CHANGES TO REVIEW:**`;
+  }
+
+  /**
+   * Process chunks with adaptive concurrency based on chunk count
+   */
+  async processChunksIntelligently(prompt, chunks) {
+    const results = [];
+    
+    if (chunks.length <= 3) {
+      // For small numbers, process sequentially with delays
+      core.info(`📦 Processing ${chunks.length} chunks sequentially (small batch)`);
+      
+      for (let i = 0; i < chunks.length; i++) {
+        core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
+        
+        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
+        results.push(result);
+        
+        if (i + 1 < chunks.length) {
+          core.info(`⏳ Waiting ${this.batchDelayMs}ms before next request...`);
+          await new Promise(resolve => setTimeout(resolve, this.batchDelayMs));
+        }
+      }
+    } else {
+      // For larger numbers, use controlled concurrency
+      const maxConcurrent = Math.min(2, chunks.length); // Max 2 concurrent requests
+      core.info(`📦 Processing ${chunks.length} chunks with controlled concurrency (max ${maxConcurrent})`);
+      
+      for (let i = 0; i < chunks.length; i += maxConcurrent) {
+        const batch = chunks.slice(i, i + maxConcurrent);
+        const batchPromises = batch.map((chunk, batchIndex) => 
+          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
+        );
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        // Add delay between batches
+        if (i + maxConcurrent < chunks.length) {
+          core.info(`⏳ Waiting ${this.batchDelayMs}ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, this.batchDelayMs));
+        }
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Parse error response from API
+   */
+  parseErrorResponse(errorText) {
+    try {
+      const errorData = JSON.parse(errorText);
+      return errorData.error?.message || errorData.message || errorText;
+    } catch {
+      return errorText;
+    }
+  }
+
+  /**
+   * Handle token limit exceeded errors
+   */
+  handleTokenLimitExceeded(chunkIndex, totalChunks) {
+    core.warning(`⚠️  Token limit exceeded for chunk ${chunkIndex + 1}. Creating summary review...`);
+    
+    return `**CHUNK ${chunkIndex + 1}/${totalChunks} - TOKEN LIMIT EXCEEDED**
+
+This chunk was too large to process completely. Here's a summary of what was detected:
+
+🔍 **Large Code Changes Detected**
+- This chunk contains significant code changes
+- Manual review recommended for this section
+- Consider breaking down large files into smaller changes
+
+⚠️ **Recommendation**: Please review this code section manually to ensure:
+- No security vulnerabilities
+- Proper error handling
+- Performance considerations
+- Code quality standards
+
+*Note: This is an automated summary due to token limits. Full review requires manual inspection.*`;
+  }
+
+  /**
+   * Validate LLM response structure
+   */
+  validateLLMResponse(data, provider) {
+    if (!data) return false;
+    
+    if (provider === 'claude') {
+      return data.content && Array.isArray(data.content) && data.content.length > 0;
+    } else if (provider === 'openai') {
+      return data.choices && Array.isArray(data.choices) && data.choices.length > 0;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Get API key for the current provider
+   */
+  getApiKey() {
+    if (this.provider === 'openai') {
+      return process.env.OPENAI_API_KEY;
+    } else if (this.provider === 'claude') {
+      return process.env.CLAUDE_API_KEY;
+    }
+    return null;
+  }
+
+  /**
+   * Call LLM API for a single chunk with improved error handling and retry logic
+   */
+  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second base delay
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { default: fetch } = await __nccwpck_require__.e(/* import() */ 816).then(__nccwpck_require__.bind(__nccwpck_require__, 816));
+        
+        const providerConfig = LLM_PROVIDERS[this.provider];
+        if (!providerConfig) {
+          throw new Error(`Unsupported LLM provider: ${this.provider}`);
+        }
+
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+          core.warning(`⚠️  No ${this.provider.toUpperCase()} API key found. Skipping LLM review.`);
+          return null;
+        }
+
+        // Estimate token count for this chunk
+        const estimatedTokens = this.estimateTokenCount(prompt, diffChunk);
+        if (estimatedTokens > 180000) { // Leave buffer for Claude's 200k limit
+          core.warning(`⚠️  Chunk ${chunkIndex + 1} estimated at ${estimatedTokens} tokens - may exceed limits`);
+        }
+
+        // Create chunk-specific prompt with better context
+        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
+        
+        core.info(`🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`);
+        
+        const response = await fetch(providerConfig.url, {
+          method: 'POST',
+          headers: providerConfig.headers(apiKey),
+          body: JSON.stringify(providerConfig.body(chunkPrompt, diffChunk)),
+          timeout: 60000 // 60 second timeout
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const errorData = this.parseErrorResponse(errorText);
+          
+          if (response.status === 429) {
+            // Rate limit - exponential backoff
+            const retryAfter = parseInt(response.headers.get('retry-after')) || Math.pow(2, attempt);
+            core.warning(`⚠️  Rate limit hit for chunk ${chunkIndex + 1}. Waiting ${retryAfter}s (attempt ${attempt}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+            continue; // Retry with next attempt
+          } else if (response.status === 400 && errorData.includes('token')) {
+            // Token limit exceeded
+            core.error(`❌ Token limit exceeded for chunk ${chunkIndex + 1}: ${errorData}`);
+            return this.handleTokenLimitExceeded(chunkIndex, totalChunks);
+          } else if (response.status >= 500) {
+            // Server error - retry with exponential backoff
+            const delay = baseDelay * Math.pow(2, attempt - 1);
+            core.warning(`⚠️  Server error (${response.status}) for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          } else {
+            throw new Error(`${this.provider.toUpperCase()} API error: ${response.status} ${response.statusText} - ${errorData}`);
+          }
+        }
+
+        const data = await response.json();
+        
+        // Validate response structure
+        if (!this.validateLLMResponse(data, this.provider)) {
+          throw new Error(`Invalid response structure from ${this.provider.toUpperCase()} API`);
+        }
+        
+        const result = providerConfig.extractResponse(data);
+        
+        // Validate extracted response
+        if (!result || typeof result !== 'string' || result.trim().length === 0) {
+          throw new Error(`Empty or invalid response from ${this.provider.toUpperCase()} API`);
+        }
+        
+        core.info(`✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${result.length} chars)`);
+        return result;
+        
+      } catch (error) {
+        if (error.message.includes('Cannot find module') || error.message.includes('node-fetch')) {
+          core.error('❌ node-fetch not found. Please install it with: npm install node-fetch');
+          return null;
+        }
+        
+        if (attempt === maxRetries) {
+          core.error(`❌ LLM review failed for chunk ${chunkIndex + 1} after ${maxRetries} attempts: ${error.message}`);
+          return null;
+        } else {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          core.warning(`⚠️  Attempt ${attempt}/${maxRetries} failed for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Call LLM API with improved chunking and intelligent processing
+   */
+  async callLLM(prompt, diff) {
+    try {
+      const apiKey = this.getApiKey();
+      if (!apiKey) {
+        core.warning(`⚠️  No ${this.provider.toUpperCase()} API key found. Skipping LLM review.`);
+        return null;
+      }
+
+      const diffSize = Buffer.byteLength(diff, 'utf8');
+      const estimatedTokens = this.estimateTokenCount(prompt, diff);
+      
+      core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
+      
+      // If diff is small enough, process it normally
+      if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
+        core.info(`🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`);
+        return await this.callLLMChunk(prompt, diff, 0, 1);
+      }
+      
+      // Split diff into chunks with intelligent sizing
+      const chunks = this.splitDiffIntoChunks(diff);
+      
+      if (chunks.length === 0) {
+        core.warning('⚠️  No chunks created from diff');
+        return null;
+      }
+      
+      core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
+      
+      // Process chunks with adaptive concurrency
+      const results = await this.processChunksIntelligently(prompt, chunks);
+      
+      // Filter out failed responses and combine results
+      const validResults = results.filter(result => result !== null);
+      
+      if (validResults.length === 0) {
+        core.error('❌ All LLM API calls failed');
+        return null;
+      }
+      
+      if (validResults.length < chunks.length) {
+        core.warning(`⚠️  Only ${validResults.length}/${chunks.length} chunks processed successfully`);
+      }
+      
+      // Combine all responses with improved logic
+      const combinedResponse = this.combineLLMResponses(validResults, chunks.length);
+      
+      core.info(`✅ Successfully processed ${validResults.length}/${chunks.length} chunks`);
+      return combinedResponse;
+      
+    } catch (error) {
+      core.error(`❌ LLM review failed: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Split diff into chunks based on size
+   */
+  splitDiffIntoChunks(diff) {
+    if (!diff || diff.length === 0) {
+      return [];
+    }
+
+    // Ensure chunk size is reasonable
+    if (this.chunkSize <= 0) {
+      core.warning(`⚠️  Invalid chunk size: ${this.chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`);
+      return [diff]; // Return as single chunk if chunk size is invalid
+    }
+
+    const chunks = [];
+    let currentChunk = '';
+    let currentSize = 0;
+    
+    // Split by file boundaries (--- File: ... ---)
+    const fileSections = diff.split(/(?=--- File: )/);
+    
+    for (const section of fileSections) {
+      const sectionSize = Buffer.byteLength(section, 'utf8');
+      
+      // If adding this section would exceed chunk size, start a new chunk
+      if (currentSize + sectionSize > this.chunkSize && currentChunk.length > 0) {
+        chunks.push(currentChunk);
+        currentChunk = section;
+        currentSize = sectionSize;
+      } else {
+        currentChunk += section;
+        currentSize += sectionSize;
+      }
+    }
+    
+    // Add the last chunk if it has content
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+    
+    core.info(`📦 Split diff into ${chunks.length} chunks (max ${Math.round(this.chunkSize / 1024)}KB each)`);
+    
+    // Warn if too many chunks are created
+    if (chunks.length > 50) {
+      core.warning(`⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`);
+    }
+    
+    return chunks;
+  }
+
+  /**
+   * Combine multiple LLM responses into a single coherent review with improved analysis
+   */
+  combineLLMResponses(responses, totalChunks) {
+    if (responses.length === 0) {
+      return 'No review results available.';
+    }
+    
+    if (responses.length === 1) {
+      return responses[0];
+    }
+    
+    // Extract and categorize information from each response
+    let combinedResponse = '';
+    
+    responses.forEach((response) => {
+      combinedResponse += response;
+    });
+    
+    return combinedResponse;
+  }
+}
+
+module.exports = LLMService;
+
+
+/***/ }),
+
+/***/ 8689:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Logging service for handling external logging and review data management
+ */
+
+const core = __nccwpck_require__(7484);
+const { CONFIG } = __nccwpck_require__(9992);
+
+class LoggingService {
+  constructor() {
+    // No constructor needed for this service
+  }
+
+  /**
+   * Log review data to external endpoint (non-blocking)
+   */
+  async logReviewData(reviewData) {
+    // Only log if enabled in configuration
+    if (!CONFIG.ENABLE_REVIEW_LOGGING) {
+      core.info('📊 Review logging disabled in configuration');
+      return;
+    }
+    
+    // Fire and forget - don't await this to avoid blocking
+    this.sendReviewLog(reviewData).catch(error => {
+      core.warning(`⚠️  Failed to log review data: ${error.message}`);
+    });
+  }
+
+  /**
+   * Send review log to external endpoint
+   */
+  async sendReviewLog(reviewData) {
+    try {
+      const { default: fetch } = await __nccwpck_require__.e(/* import() */ 816).then(__nccwpck_require__.bind(__nccwpck_require__, 816));
+      
+      const response = await fetch(CONFIG.LOGGING_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'DeepReview-GitHub-Action/1.14.0'
+        },
+        body: JSON.stringify(reviewData),
+        timeout: CONFIG.LOGGING_TIMEOUT
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      core.info('📊 Review data logged successfully');
+    } catch (error) {
+      throw new Error(`Failed to send review log: ${error.message}`);
+    }
+  }
+
+  /**
+   * Log review details
+   */
+  logReviewDetails(department, team, baseBranch, provider, language, pathToFiles, ignorePatterns, chunkSize, maxConcurrentRequests, batchDelayMs) {
+    core.info(`🚀 Starting LLM Code Review (GitHub Actions)...\n`);
+    core.info(`🤖 Using ${provider.toUpperCase()} LLM`);
+    
+    core.info(`📋 Review Details:`);
+    core.info(`  - Department: ${department}`);
+    core.info(`  - Team: ${team}`);
+    core.info(`  - Base Branch: ${baseBranch}`);
+    core.info(`  - Head Ref: ${process.env.GITHUB_SHA || 'HEAD'}`);
+    core.info(`  - Review Date: ${new Date().toLocaleString()}`);
+    core.info(`  - Reviewer: ${provider.toUpperCase()} LLM`);
+    core.info(`  - Language: ${language}`);
+    core.info(`  - Path to Files: ${pathToFiles.join(', ')}`);
+    core.info(`  - Ignore Patterns: ${ignorePatterns.join(', ')}`);
+    core.info(`  - PR Number: ${process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_EVENT_NUMBER : 'Not available'}`);
+    core.info(`  - Chunk Size: ${Math.round(chunkSize / 1024)}KB (${chunkSize} bytes)`);
+    core.info(`  - Max Concurrent Requests: ${maxConcurrentRequests}`);
+    core.info(`  - Batch Delay: ${batchDelayMs}ms`);
+    
+    // Debug chunk size configuration
+    if (chunkSize <= 0) {
+      core.warning(`⚠️  WARNING: Chunk size is ${chunkSize} - this will cause excessive chunking!`);
+      core.warning(`   Check your chunk_size input parameter or CONFIG.DEFAULT_CHUNK_SIZE`);
+    }
+    
+    core.info('');
+  }
+
+  /**
+   * Log changed files
+   */
+  logChangedFiles(changedFiles) {
+    if (changedFiles.length === 0) {
+      core.info('✅ No changes detected - nothing to review');
+      return false;
+    }
+
+    core.info(`📁 Found ${changedFiles.length} changed files in repository:\n`);
+    changedFiles.forEach(filePath => {
+      core.info(`  📄 ${filePath}`);
+    });
+    core.info('');
+    return true;
+  }
+
+  /**
+   * Log LLM response
+   */
+  logLLMResponse(llmResponse) {
+    if (llmResponse) {
+      core.info('🤖 LLM Review Results:');
+      core.info('================================================================================');
+      core.info(llmResponse);
+      core.info('================================================================================\n');
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Log final decision with enhanced details
+   */
+  logFinalDecision(shouldBlockMerge, llmResponse) {
+    try {
+      // Use centralized function to extract issues and metadata
+      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      
+      if (extractedData.chunksProcessed > 0) {
+        core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
+        
+        if (shouldBlockMerge) {
+          const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
+          const highConfidenceCritical = criticalIssues.filter(i => i.confidence >= 0.6);
+          
+          core.setFailed(`🚨 MERGE BLOCKED: LLM review found ${criticalIssues.length} critical issues (${highConfidenceCritical.length} with high confidence ≥ 0.6) across ${extractedData.chunksProcessed} chunks`);
+          
+          if (highConfidenceCritical.length > 0) {
+            core.info('   High-confidence critical issues:');
+            highConfidenceCritical.forEach(issue => {
+              core.info(`   - ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, ${Math.round(issue.confidence * 100)}% confidence)`);
+              core.info(`     File: ${issue.file}, Lines: ${issue.lines.join('-')}`);
+              if (issue.risk_factors) {
+                core.info(`     Risk Factors: I:${issue.risk_factors.impact} E:${issue.risk_factors.exploitability} L:${issue.risk_factors.likelihood} B:${issue.risk_factors.blast_radius} Ev:${issue.risk_factors.evidence_strength}`);
+              }
+              core.info(`     Impact: ${issue.why_it_matters}`);
+            });
+          }
+          
+          core.info('   Please fix the critical issues mentioned above and run the review again.');
+        } else {
+          const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
+          core.info(`✅ MERGE APPROVED: No critical issues found across ${extractedData.chunksProcessed} chunks. ${suggestions.length} suggestions available for consideration.`);
+          
+          if (suggestions.length > 0) {
+            core.info('   Suggestions for improvement:');
+            suggestions.slice(0, 3).forEach(issue => { // Show first 3 suggestions
+              core.info(`   - ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, ${Math.round(issue.confidence * 100)}% confidence)`);
+            });
+            if (suggestions.length > 3) {
+              core.info(`   ... and ${suggestions.length - 3} more suggestions`);
+            }
+          }
+        }
+        
+        // Log combined metrics
+        core.info(`📊 Review Summary: ${extractedData.totalCriticalCount} critical, ${extractedData.totalSuggestionCount} suggestions across ${extractedData.chunksProcessed} chunks`);
+        
+        return;
+      }
+    } catch (error) {
+      core.warning(`⚠️  Error parsing JSON for detailed logging: ${error.message}`);
+    }
+    
+    // Fallback to simple logging
+    if (shouldBlockMerge) {
+      core.setFailed('🚨 MERGE BLOCKED: LLM review found critical issues that must be addressed before merging.');
+      core.info('   Please fix the issues mentioned above and run the review again.');
+    } else {
+      core.info('✅ MERGE APPROVED: No critical issues found. Safe to merge.');
+    }
+  }
+
+  /**
+   * Extract issues and metadata from LLM response (helper method)
+   */
+  extractIssuesFromResponse(llmResponse) {
+    const issues = [];
+    const summaries = [];
+    let totalCriticalCount = 0;
+    let totalSuggestionCount = 0;
+    let jsonMatches = [];
+    
+    try {
+      // Try to extract JSON from the new XML-style format first
+      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
+      
+      if (jsonMatches.length > 0) {
+        jsonMatches.forEach((match, index) => {
+          try {
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
+            const reviewData = JSON.parse(jsonStr);
+            
+            // Collect summary
+            if (reviewData.summary) {
+              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
+            }
+            
+            // Collect issues
+            if (reviewData.issues && Array.isArray(reviewData.issues)) {
+              reviewData.issues.forEach(issue => {
+                // Add chunk context to issue
+                const issueWithContext = {
+                  ...issue,
+                  chunk: index + 1,
+                  originalId: issue.id
+                };
+                issues.push(issueWithContext);
+              });
+            }
+            
+            // Collect metrics
+            if (reviewData.metrics) {
+              totalCriticalCount += reviewData.metrics.critical_count || 0;
+              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
+            }
+            
+          } catch (parseError) {
+            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
+          }
+        });
+      }
+    } catch (error) {
+      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
+    }
+    
+    return {
+      issues,
+      summaries,
+      totalCriticalCount,
+      totalSuggestionCount,
+      chunksProcessed: jsonMatches.length
+    };
+  }
+}
+
+module.exports = LoggingService;
+
+
+/***/ }),
+
+/***/ 9962:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Review service for handling core review logic and decision making
+ */
+
+const core = __nccwpck_require__(7484);
+const { CONFIG, getLanguageForFile } = __nccwpck_require__(9992);
+
+class ReviewService {
+  constructor() {
+    // No constructor needed for this service
+  }
+
+  /**
+   * Check if LLM response indicates merge should be blocked based on JSON analysis
+   */
+  checkMergeDecision(llmResponse) {
+    try {
+      // Try to extract JSON from the new XML-style format first
+      const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
+      
+      if (jsonMatches && jsonMatches.length > 0) {
+        core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
+        
+        // Parse all JSON objects and combine their data
+        const allIssues = [];
+        let hasBlockingRecommendation = false;
+        let totalCriticalCount = 0;
+        
+        jsonMatches.forEach((match, index) => {
+          try {
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
+            const reviewData = JSON.parse(jsonStr);
+            
+            core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
+            
+            // Check final recommendation from this chunk
+            if (reviewData.final_recommendation) {
+              if (reviewData.final_recommendation === 'do_not_merge') {
+                hasBlockingRecommendation = true;
+                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (BLOCK)`);
+              } else {
+                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (APPROVE)`);
+              }
+            }
+            
+            // Collect issues
+            if (reviewData.issues && Array.isArray(reviewData.issues)) {
+              reviewData.issues.forEach(issue => {
+                // Add chunk context to issue
+                const issueWithContext = {
+                  ...issue,
+                  chunk: index + 1,
+                  originalId: issue.id
+                };
+                allIssues.push(issueWithContext);
+              });
+            }
+            
+            // Collect metrics
+            if (reviewData.metrics) {
+              totalCriticalCount += reviewData.metrics.critical_count || 0;
+            }
+            
+          } catch (parseError) {
+            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
+          }
+        });
+        
+        // Check if any chunk recommended blocking
+        if (hasBlockingRecommendation) {
+          core.info(`🚨 At least one chunk recommended blocking the merge`);
+          return true;
+        }
+        
+        // Analyze all issues based on severity and confidence
+        if (allIssues.length > 0) {
+          const criticalIssues = allIssues.filter(issue => 
+            issue.severity_proposed === 'critical' && issue.confidence >= 0.6
+          );
+          
+          const highConfidenceCritical = criticalIssues.length;
+          
+          if (highConfidenceCritical > 0) {
+            core.info(`🚨 Found ${highConfidenceCritical} critical issues with confidence ≥ 0.6 across all chunks`);
+            core.info(`   Issues: ${criticalIssues.map(i => `${i.originalId} (${i.category}, Chunk ${i.chunk}, score: ${i.severity_score?.toFixed(1) || 'N/A'})`).join(', ')}`);
+            return true; // Block merge
+          }
+          
+          // Log all issues for transparency with severity scores
+          const allIssuesSummary = allIssues.map(issue => 
+            `${issue.severity_proposed.toUpperCase()} ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, confidence: ${issue.confidence})`
+          );
+          
+          if (allIssuesSummary.length > 0) {
+            core.info(`📋 All issues found: ${allIssuesSummary.join(', ')}`);
+          }
+        }
+        
+        // Check combined metrics
+        if (totalCriticalCount > 0) {
+          core.info(`🚨 Total critical issues count across all chunks: ${totalCriticalCount}`);
+          return true; // Block merge if any critical issues
+        }
+        
+        core.info('✅ No critical issues found across all chunks - safe to merge');
+        return false;
+      }
+      
+      // Fallback to old text-based parsing if JSON not found
+      core.warning('⚠️  JSON not found in response, falling back to text-based parsing');
+      return this.checkMergeDecisionLegacy(llmResponse);
+      
+    } catch (error) {
+      core.warning(`⚠️  Error parsing JSON response: ${error.message}`);
+      core.warning('⚠️  Falling back to text-based parsing');
+      return this.checkMergeDecisionLegacy(llmResponse);
+    }
+  }
+
+  /**
+   * Legacy text-based merge decision checking (fallback)
+   */
+  checkMergeDecisionLegacy(llmResponse) {
+    const response = llmResponse.toLowerCase();
+
+    // Check for explicit approval phrases
+    for (const phrase of CONFIG.APPROVAL_PHRASES) {
+      if (response.includes(phrase)) {
+        core.info(`✅ Found approval phrase: "${phrase}"`);
+        return false; // Safe to merge
+      }
+    }
+
+    // Check for explicit blocking phrases
+    for (const phrase of CONFIG.BLOCKING_PHRASES) {
+      if (response.includes(phrase)) {
+        core.info(`🚨 Found blocking phrase: "${phrase}"`);
+        return true; // Block merge
+      }
+    }
+
+    // Check for critical issue indicators
+    let criticalIssueCount = 0;
+    for (const issue of CONFIG.CRITICAL_ISSUES) {
+      if (response.includes(issue)) {
+        criticalIssueCount++;
+      }
+    }
+    
+    if (criticalIssueCount >= 2) {
+      core.info(`🚨 Found ${criticalIssueCount} critical issues without explicit approval`);
+      return true;
+    }
+    
+    core.info('⚠️  No explicit merge decision found, defaulting to allow merge');
+    return false;
+  }
+
+  /**
+   * Extract issues and metadata from LLM response
+   */
+  extractIssuesFromResponse(llmResponse) {
+    const issues = [];
+    const summaries = [];
+    let totalCriticalCount = 0;
+    let totalSuggestionCount = 0;
+    let jsonMatches = [];
+    
+    try {
+      // Try to extract JSON from the new XML-style format first
+      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
+      
+      if (jsonMatches.length > 0) {
+        jsonMatches.forEach((match, index) => {
+          try {
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
+            const reviewData = JSON.parse(jsonStr);
+            
+            // Collect summary
+            if (reviewData.summary) {
+              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
+            }
+            
+            // Collect issues
+            if (reviewData.issues && Array.isArray(reviewData.issues)) {
+              reviewData.issues.forEach(issue => {
+                // Add chunk context to issue
+                const issueWithContext = {
+                  ...issue,
+                  chunk: index + 1,
+                  originalId: issue.id
+                };
+                issues.push(issueWithContext);
+              });
+            }
+            
+            // Collect metrics
+            if (reviewData.metrics) {
+              totalCriticalCount += reviewData.metrics.critical_count || 0;
+              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
+            }
+            
+          } catch (parseError) {
+            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
+          }
+        });
+      }
+    } catch (error) {
+      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
+    }
+    
+    return {
+      issues,
+      summaries,
+      totalCriticalCount,
+      totalSuggestionCount,
+      chunksProcessed: jsonMatches.length
+    };
+  }
+
+  /**
+   * Generate PR comment content with enhanced JSON parsing
+   */
+  generatePRComment(shouldBlockMerge, changedFiles, llmResponse, department, team, provider, baseBranch, pathToFiles, ignorePatterns) {
+    const status = shouldBlockMerge ? '❌ **DO NOT MERGE**' : '✅ **SAFE TO MERGE**';
+    const statusDescription = shouldBlockMerge 
+      ? 'Issues found that must be addressed before merging' 
+      : 'All changes are safe and well-implemented';
+
+    // Extract issues and metadata using centralized function
+    const extractedData = this.extractIssuesFromResponse(llmResponse);
+    
+    // Create review summary
+    let reviewSummary = '';
+    if (extractedData.summaries.length > 0) {
+      reviewSummary = `**AI Summary**: ${extractedData.summaries.join(' ')}\n\n`;
+    }
+    
+    // Create structured issue display
+    let issueDetails = '';
+    if (extractedData.issues.length > 0) {
+      const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
+      const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
+      
+      issueDetails = `## 🔍 **Issues Found**\n\n`;
+      
+      if (criticalIssues.length > 0) {
+        issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
+        criticalIssues.forEach(issue => {
+          const language = getLanguageForFile(issue.file);
+          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          if (issue.snippet) {
+            issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
+          }
+          issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
+          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
+          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
+          issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
+          if (issue.fix_summary) {
+            issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+          }
+          if (issue.fix_code_patch) {
+            issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
+          }
+          if (issue.tests) {
+            issueDetails += `- **Test**: ${issue.tests}\n`;
+          }
+          issueDetails += `\n`;
+        });
+      }
+      
+      if (suggestions.length > 0) {
+        issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
+        suggestions.forEach(issue => {
+          const language = getLanguageForFile(issue.file);
+          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          if (issue.snippet) {
+            issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
+          }
+          issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
+          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
+          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
+          issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
+          if (issue.fix_summary) {
+            issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
+          }
+          if (issue.fix_code_patch) {
+            issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
+          }
+          issueDetails += `\n`;
+        });
+      }
+      
+      // Add combined metrics
+      issueDetails += `### 📊 **Review Metrics**\n`;
+      issueDetails += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
+      issueDetails += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
+      issueDetails += `- **Total Issues**: ${extractedData.issues.length}\n`;
+      issueDetails += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
+    }
+
+    return `## 🤖 DeepReview
+
+**Overall Assessment**: ${status} - ${statusDescription}
+
+${reviewSummary}
+
+**Review Details:**
+- **Department**: ${department}
+- **Team**: ${team}
+- **Provider**: ${provider.toUpperCase()}
+- **Files Reviewed**: ${changedFiles.length} files
+- **Review Date**: ${new Date().toLocaleString()}
+- **Base Branch**: ${baseBranch}
+- **Head Branch**: ${process.env.GITHUB_REF_NAME || 'HEAD'}
+- **Path Filter**: ${pathToFiles.join(', ')}
+- **Ignored Patterns**: ${ignorePatterns.join(', ')}
+
+---
+
+${issueDetails}
+
+---
+
+**What to do next:**
+${shouldBlockMerge 
+  ? '1. 🔍 Review the critical issues above\n2. 🛠️ Fix the issues mentioned in the review\n3. 🔄 Push changes and re-run the review\n4. ✅ Merge only after all critical issues are resolved'
+  : '1. ✅ Review the suggestions above\n2. 🚀 Safe to merge when ready\n3. 💡 Consider any optimization suggestions as future improvements'
+}
+`;
+  }
+
+  /**
+   * Prepare review data for logging
+   */
+  prepareReviewLogData(shouldBlockMerge, changedFiles, llmResponse, department, team, language, provider) {
+    try {
+      // Extract issues from LLM response
+      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      
+      // Prepare issues for logging (simplified format)
+      const logIssues = extractedData.issues.map(issue => ({
+        id: issue.id,
+        category: issue.category,
+        severity: issue.severity_proposed,
+        severity_score: issue.severity_score,
+        confidence: issue.confidence,
+        file: issue.file,
+        lines: issue.lines,
+        chunk: issue.chunk,
+        risk_factors: issue.risk_factors,
+        risk_factors_notes: issue.risk_factors_notes
+      }));
+      
+      const reviewData = {
+        department,
+        team,
+        head_branch: process.env.GITHUB_REF_NAME || 'HEAD',
+        files_reviewed: changedFiles.length,
+        issues: logIssues,
+        review_timestamp: new Date().toISOString(),
+        repository: `${process.env.GITHUB_REPOSITORY || 'unknown/unknown'}`,
+        pr_number: process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_EVENT_NUMBER : null,
+        merge_blocked: shouldBlockMerge,
+        language,
+        provider
+      };
+
+      return reviewData;
+    } catch (error) {
+      core.warning(`⚠️  Error preparing review log data: ${error.message}`);
+      // Return basic data if parsing fails
+      return {
+        department,
+        team,
+        head_branch: 'HEAD',
+        files_reviewed: changedFiles.length,
+        issues: [],
+        review_timestamp: new Date().toISOString(),
+        repository: `${process.env.GITHUB_REPOSITORY || 'unknown/unknown'}`,
+        pr_number: null,
+        merge_blocked: shouldBlockMerge,
+        language,
+        provider
+      };
+    }
+  }
+}
+
+module.exports = ReviewService;
+
+
+/***/ }),
+
+/***/ 8137:
+/***/ ((module) => {
+
+/**
+ * Utility functions for language processing and file handling
+ */
+
+/**
+ * Get language identifier for syntax highlighting based on file extension
+ */
+function getLanguageForFile(filePath) {
   if (!filePath) return '';
   
   const extension = filePath.split('.').pop().toLowerCase();
@@ -30356,16 +32200,9 @@ function getReviewPrompt(language) {
 }
 
 module.exports = {
-  CONFIG,
-  LLM_PROVIDERS,
-  LANGUAGE_PROMPTS,
-  SHARED_PROMPT_COMPONENTS,
-  LANGUAGE_CRITICAL_OVERRIDES,
-  LANGUAGE_SPECIFIC_CHECKS,
-  LANGUAGE_CONFIGS,
-  getReviewPrompt,
   getLanguageForFile
 };
+
 
 /***/ }),
 
@@ -32448,1293 +34285,84 @@ var __webpack_exports__ = {};
 
 const core = __nccwpck_require__(7484);
 const github = __nccwpck_require__(3228);
-const { execSync } = __nccwpck_require__(5317);
-const { CONFIG, LLM_PROVIDERS, getReviewPrompt, getLanguageForFile } = __nccwpck_require__(9992);
+const { getReviewPrompt } = __nccwpck_require__(9992);
+
+// Import services
+const InputService = __nccwpck_require__(5948);
+const FileService = __nccwpck_require__(440);
+const LLMService = __nccwpck_require__(3891);
+const GitHubService = __nccwpck_require__(7701);
+const ReviewService = __nccwpck_require__(9962);
+const LoggingService = __nccwpck_require__(8689);
 
 /**
- * GitHub Actions Code Reviewer
+ * GitHub Actions Code Reviewer - Main orchestrator
+ * Now uses modular services for better maintainability
  */
 class GitHubActionsReviewer {
   constructor() {
-    // Get inputs from action
-    this.provider = core.getInput('llm_provider') || CONFIG.DEFAULT_PROVIDER;
-    this.pathToFiles = this.parsePathToFiles(core.getInput('path_to_files') || CONFIG.DEFAULT_PATH_TO_FILES);
-    this.language = core.getInput('language') || CONFIG.DEFAULT_LANGUAGE;
-    this.maxTokens = parseInt(core.getInput('max_tokens')) || CONFIG.MAX_TOKENS;
-    this.temperature = parseFloat(core.getInput('temperature')) || CONFIG.TEMPERATURE;
+    // Initialize services
+    this.inputService = new InputService();
+    this.reviewService = new ReviewService();
+    this.loggingService = new LoggingService();
     
-    // Logging parameters
-    this.department = core.getInput('department') || 'web';
-    this.team = core.getInput('team');
+    // Get and validate inputs
+    this.inputs = this.inputService.getInputs();
     
-    // Validate required team parameter
-    if (!this.team) {
-      throw new Error('Team parameter is required. Please provide a team name.');
-    }
+    // Set API key environment variables
+    this.inputService.setApiKeyEnvironment(this.inputs);
     
-    // Parse ignore patterns from input or use default from CONFIG
-    this.ignorePatterns = this.parseIgnorePatterns(core.getInput('ignore_patterns'));
-    
-    // Chunking configuration - Always use CONFIG defaults
-    this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
-    this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
-    this.batchDelayMs = CONFIG.BATCH_DELAY_MS;
-    
-    // GitHub context
+    // Initialize GitHub context
     this.octokit = github.getOctokit(process.env.GITHUB_TOKEN);
     this.context = github.context;
     
-    // Get base branch dynamically from PR or use input/default
-    this.baseBranch = this.getBaseBranch();
+    // Initialize GitHub service
+    this.githubService = new GitHubService(this.octokit, this.context);
     
-    // Set environment variables for API keys
-    if (this.provider === 'openai') {
-      const openaiKey = core.getInput('openai_api_key');
-      if (openaiKey) {
-        process.env.OPENAI_API_KEY = openaiKey;
-      }
-    } else if (this.provider === 'claude') {
-      const claudeKey = core.getInput('claude_api_key');
-      if (claudeKey) {
-        process.env.CLAUDE_API_KEY = claudeKey;
-      }
-    }
-  }
-
-  /**
-   * Parse ignore patterns input to support multiple comma-separated patterns
-   */
-  parseIgnorePatterns(input) {
-    if (!input) {
-      return CONFIG.IGNORE_PATTERNS;
-    }
+    // Get base branch dynamically
+    this.baseBranch = this.githubService.getBaseBranch(
+      this.inputs.inputBaseBranch, 
+      (__nccwpck_require__(9992).CONFIG).DEFAULT_BASE_BRANCH
+    );
     
-    // Split by comma and clean up whitespace
-    const patterns = input.split(',').map(pattern => pattern.trim()).filter(pattern => pattern.length > 0);
+    // Initialize file service
+    this.fileService = new FileService(
+      this.baseBranch,
+      this.inputs.language,
+      this.inputs.pathToFiles,
+      this.inputs.ignorePatterns
+    );
     
-    if (patterns.length === 0) {
-      return CONFIG.IGNORE_PATTERNS;
-    }
-    
-    core.info(`🚫 Parsed ignore patterns: ${patterns.join(', ')}`);
-    return patterns;
-  }
-
-  /**
-   * Parse path_to_files input to support multiple comma-separated paths
-   */
-  parsePathToFiles(input) {
-    if (!input) {
-      return [CONFIG.DEFAULT_PATH_TO_FILES];
-    }
-    
-    // Split by comma and clean up whitespace
-    const paths = input.split(',').map(path => path.trim()).filter(path => path.length > 0);
-    
-    if (paths.length === 0) {
-      return [CONFIG.DEFAULT_PATH_TO_FILES];
-    }
-    
-    core.info(`📁 Parsed paths to review: ${paths.join(', ')}`);
-    return paths;
-  }
-
-  /**
-   * Get base branch dynamically from PR or use input/default
-   */
-  getBaseBranch() {
-    // If we're in a pull request context, get the base branch from the PR
-    if (this.context.eventName === 'pull_request' && this.context.payload.pull_request) {
-      const prBaseBranch = this.context.payload.pull_request.base.ref;
-      core.info(`📋 Using PR base branch: ${prBaseBranch}`);
-      return prBaseBranch;
-    }
-    
-    // Fallback to input or default
-    const inputBaseBranch = core.getInput('base_branch');
-    if (inputBaseBranch) {
-      core.info(`📋 Using input base branch: ${inputBaseBranch}`);
-      return inputBaseBranch;
-    }
-    
-    core.info(`📋 Using default base branch: ${CONFIG.DEFAULT_BASE_BRANCH}`);
-    return CONFIG.DEFAULT_BASE_BRANCH;
-  }
-
-  /**
-   * Get changed files from git diff with language filtering
-   */
-  getChangedFiles() {
-    try {
-      core.info('🔍 Detecting changed files...');
-      core.info(`Comparing ${this.context.sha} against origin/${this.baseBranch}`);
-      core.info(`🔤 Language filter: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`);
-      
-      const rawOutput = execSync(`git diff --name-only origin/${this.baseBranch}...HEAD`, { encoding: 'utf8' });
-      const allFiles = rawOutput
-        .split('\n')
-        .filter(Boolean) // Remove empty lines
-        .filter(file => {
-          // Check if file matches any of the specified paths
-          const matchesPath = this.pathToFiles.some(path => file.startsWith(path));
-          
-          // Check if file should be ignored using ignore patterns from input or default
-          const shouldIgnore = this.ignorePatterns.some(pattern => file.endsWith(pattern));
-          
-          // Check if file matches the specified language
-          const matchesLanguage = this.matchesLanguage(file);
-          
-          return matchesPath && !shouldIgnore && matchesLanguage;
-        });
-      
-      core.info(`Found ${allFiles.length} changed files matching language: ${this.language}`);
-      
-      return allFiles;
-    } catch (error) {
-      core.error(`❌ Error getting changed files: ${error.message}`);
-      return [];
-    }
-  }
-
-  /**
-   * Check if file matches the specified language
-   */
-  matchesLanguage(filePath) {
-    const languageConfig = CONFIG.LANGUAGE_CONFIGS[this.language];
-    if (!languageConfig) {
-      core.warning(`⚠️  Unknown language: ${this.language}, defaulting to all files`);
-      return true; // Default to include all files if language not recognized
-    }
-    
-    return languageConfig.extensions.some(ext => filePath.endsWith(ext));
-  }
-
-  /**
-   * Get diff for a single file
-   */
-  getFileDiff(filePath) {
-    try {
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
-      const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
-      return diff;
-    } catch (error) {
-      core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
-      return '';
-    }
-  }
-
-  /**
-   * Split diff into chunks based on size
-   */
-  splitDiffIntoChunks(diff, maxChunkSize = null) {
-    const chunkSize = maxChunkSize || this.chunkSize;
-    
-    if (!diff || diff.length === 0) {
-      return [];
-    }
-
-    // Ensure chunk size is reasonable
-    if (chunkSize <= 0) {
-      core.warning(`⚠️  Invalid chunk size: ${chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`);
-      return [diff]; // Return as single chunk if chunk size is invalid
-    }
-
-    const chunks = [];
-    let currentChunk = '';
-    let currentSize = 0;
-    
-    // Split by file boundaries (--- File: ... ---)
-    const fileSections = diff.split(/(?=--- File: )/);
-    
-    for (const section of fileSections) {
-      const sectionSize = Buffer.byteLength(section, 'utf8');
-      
-      // If adding this section would exceed chunk size, start a new chunk
-      if (currentSize + sectionSize > chunkSize && currentChunk.length > 0) {
-        chunks.push(currentChunk);
-        currentChunk = section;
-        currentSize = sectionSize;
-      } else {
-        currentChunk += section;
-        currentSize += sectionSize;
-      }
-    }
-    
-    // Add the last chunk if it has content
-    if (currentChunk.length > 0) {
-      chunks.push(currentChunk);
-    }
-    
-    core.info(`📦 Split diff into ${chunks.length} chunks (max ${Math.round(chunkSize / 1024)}KB each)`);
-    
-    // Warn if too many chunks are created
-    if (chunks.length > 50) {
-      core.warning(`⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`);
-    }
-    
-    return chunks;
-  }
-
-  /**
-   * Get full diff for all changed files with chunking support
-   */
-  getFullDiff() {
-    try {
-      const changedFiles = this.getChangedFiles();
-
-      if (changedFiles.length === 0) {
-        return '';
-      }
-
-      core.info(`📊 Processing ${changedFiles.length} files for diff generation...`);
-      
-      let allDiffs = [];
-      
-      // Process files one by one to avoid command line length issues
-      for (let i = 0; i < changedFiles.length; i++) {
-        const filePath = changedFiles[i];
-        core.info(`📄 Processing diff for: ${filePath} (${i + 1}/${changedFiles.length})`);
-        
-        const fileDiff = this.getFileDiff(filePath);
-        
-        if (fileDiff) {
-          const diffWithHeader = `\n--- File: ${filePath} ---\n${fileDiff}\n`;
-          allDiffs.push(diffWithHeader);
-        }
-      }
-      
-      const finalDiff = allDiffs.join('\n');
-      core.info(`✅ Generated diff of ${allDiffs.length} files, total size: ${Math.round(Buffer.byteLength(finalDiff, 'utf8') / 1024)}KB`);
-      
-      if (allDiffs.length === 0) {
-        core.warning('⚠️  No valid diffs could be generated for any files');
-        return '';
-      }
-      
-      return finalDiff;
-    } catch (error) {
-      core.error(`❌ Error getting diff: ${error.message}`);
-      return '';
-    }
-  }
-
-  /**
-   * Estimate token count for text (rough approximation)
-   */
-  estimateTokenCount(prompt, diff) {
-    // Rough estimation: ~4 characters per token for code
-    const totalText = prompt + diff;
-    return Math.ceil(totalText.length / 4);
-  }
-
-  /**
-   * Create optimized prompt for chunk processing
-   */
-  createChunkPrompt(prompt, chunkIndex, totalChunks) {
-    if (totalChunks === 1) {
-      return prompt;
-    }
-    
-    return `${prompt}
-
-**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
-**INSTRUCTIONS:** 
-- Review this specific portion of the code changes
-- Focus on issues that are relevant to this chunk
-- If you find critical issues, mark them clearly
-- Provide specific, actionable feedback for this code section
-- Consider how this chunk relates to the overall changes
-
-**CODE CHANGES TO REVIEW:**`;
-  }
-
-  /**
-   * Process chunks with adaptive concurrency based on chunk count
-   */
-  async processChunksIntelligently(prompt, chunks) {
-    const results = [];
-    
-    if (chunks.length <= 3) {
-      // For small numbers, process sequentially with delays
-      core.info(`📦 Processing ${chunks.length} chunks sequentially (small batch)`);
-      
-      for (let i = 0; i < chunks.length; i++) {
-        core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
-        
-        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
-        results.push(result);
-        
-        if (i + 1 < chunks.length) {
-          core.info(`⏳ Waiting ${this.batchDelayMs}ms before next request...`);
-          await new Promise(resolve => setTimeout(resolve, this.batchDelayMs));
-        }
-      }
-    } else {
-      // For larger numbers, use controlled concurrency
-      const maxConcurrent = Math.min(2, chunks.length); // Max 2 concurrent requests
-      core.info(`📦 Processing ${chunks.length} chunks with controlled concurrency (max ${maxConcurrent})`);
-      
-      for (let i = 0; i < chunks.length; i += maxConcurrent) {
-        const batch = chunks.slice(i, i + maxConcurrent);
-        const batchPromises = batch.map((chunk, batchIndex) => 
-          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
-        );
-        
-        const batchResults = await Promise.all(batchPromises);
-        results.push(...batchResults);
-        
-        // Add delay between batches
-        if (i + maxConcurrent < chunks.length) {
-          core.info(`⏳ Waiting ${this.batchDelayMs}ms before next batch...`);
-          await new Promise(resolve => setTimeout(resolve, this.batchDelayMs));
-        }
-      }
-    }
-    
-    return results;
-  }
-
-  /**
-   * Parse error response from API
-   */
-  parseErrorResponse(errorText) {
-    try {
-      const errorData = JSON.parse(errorText);
-      return errorData.error?.message || errorData.message || errorText;
-    } catch {
-      return errorText;
-    }
-  }
-
-  /**
-   * Handle token limit exceeded errors
-   */
-  handleTokenLimitExceeded(chunkIndex, totalChunks) {
-    core.warning(`⚠️  Token limit exceeded for chunk ${chunkIndex + 1}. Creating summary review...`);
-    
-    return `**CHUNK ${chunkIndex + 1}/${totalChunks} - TOKEN LIMIT EXCEEDED**
-
-This chunk was too large to process completely. Here's a summary of what was detected:
-
-🔍 **Large Code Changes Detected**
-- This chunk contains significant code changes
-- Manual review recommended for this section
-- Consider breaking down large files into smaller changes
-
-⚠️ **Recommendation**: Please review this code section manually to ensure:
-- No security vulnerabilities
-- Proper error handling
-- Performance considerations
-- Code quality standards
-
-*Note: This is an automated summary due to token limits. Full review requires manual inspection.*`;
-  }
-
-  /**
-   * Validate LLM response structure
-   */
-  validateLLMResponse(data, provider) {
-    if (!data) return false;
-    
-    if (provider === 'claude') {
-      return data.content && Array.isArray(data.content) && data.content.length > 0;
-    } else if (provider === 'openai') {
-      return data.choices && Array.isArray(data.choices) && data.choices.length > 0;
-    }
-    
-    return false;
-  }
-
-  /**
-   * Get API key for the current provider
-   */
-  getApiKey() {
-    if (this.provider === 'openai') {
-      return process.env.OPENAI_API_KEY;
-    } else if (this.provider === 'claude') {
-      return process.env.CLAUDE_API_KEY;
-    }
-    return null;
-  }
-
-  /**
-   * Call LLM API for a single chunk with improved error handling and retry logic
-   */
-  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
-    const maxRetries = 3;
-    const baseDelay = 1000; // 1 second base delay
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const { default: fetch } = await __nccwpck_require__.e(/* import() */ 816).then(__nccwpck_require__.bind(__nccwpck_require__, 816));
-        
-        const providerConfig = LLM_PROVIDERS[this.provider];
-        if (!providerConfig) {
-          throw new Error(`Unsupported LLM provider: ${this.provider}`);
-        }
-
-        const apiKey = this.getApiKey();
-        if (!apiKey) {
-          core.warning(`⚠️  No ${this.provider.toUpperCase()} API key found. Skipping LLM review.`);
-          return null;
-        }
-
-        // Estimate token count for this chunk
-        const estimatedTokens = this.estimateTokenCount(prompt, diffChunk);
-        if (estimatedTokens > 180000) { // Leave buffer for Claude's 200k limit
-          core.warning(`⚠️  Chunk ${chunkIndex + 1} estimated at ${estimatedTokens} tokens - may exceed limits`);
-        }
-
-        // Create chunk-specific prompt with better context
-        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
-        
-        core.info(`🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`);
-        
-        const response = await fetch(providerConfig.url, {
-          method: 'POST',
-          headers: providerConfig.headers(apiKey),
-          body: JSON.stringify(providerConfig.body(chunkPrompt, diffChunk)),
-          timeout: 60000 // 60 second timeout
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          const errorData = this.parseErrorResponse(errorText);
-          
-          if (response.status === 429) {
-            // Rate limit - exponential backoff
-            const retryAfter = parseInt(response.headers.get('retry-after')) || Math.pow(2, attempt);
-            core.warning(`⚠️  Rate limit hit for chunk ${chunkIndex + 1}. Waiting ${retryAfter}s (attempt ${attempt}/${maxRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-            continue; // Retry with next attempt
-          } else if (response.status === 400 && errorData.includes('token')) {
-            // Token limit exceeded
-            core.error(`❌ Token limit exceeded for chunk ${chunkIndex + 1}: ${errorData}`);
-            return this.handleTokenLimitExceeded(chunkIndex, totalChunks);
-          } else if (response.status >= 500) {
-            // Server error - retry with exponential backoff
-            const delay = baseDelay * Math.pow(2, attempt - 1);
-            core.warning(`⚠️  Server error (${response.status}) for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          } else {
-            throw new Error(`${this.provider.toUpperCase()} API error: ${response.status} ${response.statusText} - ${errorData}`);
-          }
-        }
-
-        const data = await response.json();
-        
-        // Validate response structure
-        if (!this.validateLLMResponse(data, this.provider)) {
-          throw new Error(`Invalid response structure from ${this.provider.toUpperCase()} API`);
-        }
-        
-        const result = providerConfig.extractResponse(data);
-        
-        // Validate extracted response
-        if (!result || typeof result !== 'string' || result.trim().length === 0) {
-          throw new Error(`Empty or invalid response from ${this.provider.toUpperCase()} API`);
-        }
-        
-        core.info(`✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${result.length} chars)`);
-        return result;
-        
-      } catch (error) {
-        if (error.message.includes('Cannot find module') || error.message.includes('node-fetch')) {
-          core.error('❌ node-fetch not found. Please install it with: npm install node-fetch');
-          return null;
-        }
-        
-        if (attempt === maxRetries) {
-          core.error(`❌ LLM review failed for chunk ${chunkIndex + 1} after ${maxRetries} attempts: ${error.message}`);
-          return null;
-        } else {
-          const delay = baseDelay * Math.pow(2, attempt - 1);
-          core.warning(`⚠️  Attempt ${attempt}/${maxRetries} failed for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    return null;
-  }
-
-  /**
-   * Call LLM API with improved chunking and intelligent processing
-   */
-  async callLLM(prompt, diff) {
-    try {
-      const apiKey = this.getApiKey();
-      if (!apiKey) {
-        core.warning(`⚠️  No ${this.provider.toUpperCase()} API key found. Skipping LLM review.`);
-        return null;
-      }
-
-      const diffSize = Buffer.byteLength(diff, 'utf8');
-      const estimatedTokens = this.estimateTokenCount(prompt, diff);
-      
-      core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
-      
-      // If diff is small enough, process it normally
-      if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
-        core.info(`🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`);
-        return await this.callLLMChunk(prompt, diff, 0, 1);
-      }
-      
-      // Split diff into chunks with intelligent sizing
-      const chunks = this.splitDiffIntoChunks(diff);
-      
-      if (chunks.length === 0) {
-        core.warning('⚠️  No chunks created from diff');
-        return null;
-      }
-      
-      core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
-      
-      // Process chunks with adaptive concurrency
-      const results = await this.processChunksIntelligently(prompt, chunks);
-      
-      // Filter out failed responses and combine results
-      const validResults = results.filter(result => result !== null);
-      
-      if (validResults.length === 0) {
-        core.error('❌ All LLM API calls failed');
-        return null;
-      }
-      
-      if (validResults.length < chunks.length) {
-        core.warning(`⚠️  Only ${validResults.length}/${chunks.length} chunks processed successfully`);
-      }
-      
-      // Combine all responses with improved logic
-      const combinedResponse = this.combineLLMResponses(validResults, chunks.length);
-      
-      core.info(`✅ Successfully processed ${validResults.length}/${chunks.length} chunks`);
-      return combinedResponse;
-      
-    } catch (error) {
-      core.error(`❌ LLM review failed: ${error.message}`);
-      return null;
-    }
-  }
-
-  /**
-   * Combine multiple LLM responses into a single coherent review with improved analysis
-   */
-  combineLLMResponses(responses, totalChunks) {
-    if (responses.length === 0) {
-      return 'No review results available.';
-    }
-    
-    if (responses.length === 1) {
-      return responses[0];
-    }
-    
-    // Extract and categorize information from each response
-    let combinedResponse = '';
-    
-    responses.forEach((response) => {
-      combinedResponse += response
-    });
-    
-    return combinedResponse;
-  }
-
-  /**
-   * Check if LLM response indicates merge should be blocked based on JSON analysis
-   */
-  checkMergeDecision(llmResponse) {
-    try {
-      // Try to extract JSON from the new XML-style format first
-      const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
-      
-      if (jsonMatches && jsonMatches.length > 0) {
-        core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
-        
-        // Parse all JSON objects and combine their data
-        const allIssues = [];
-        let hasBlockingRecommendation = false;
-        let totalCriticalCount = 0;
-        
-        jsonMatches.forEach((match, index) => {
-          try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
-            const reviewData = JSON.parse(jsonStr);
-            
-            core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
-            
-            // Check final recommendation from this chunk
-            if (reviewData.final_recommendation) {
-              if (reviewData.final_recommendation === 'do_not_merge') {
-                hasBlockingRecommendation = true;
-                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (BLOCK)`);
-              } else {
-                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (APPROVE)`);
-              }
-            }
-            
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
-                const issueWithContext = {
-                  ...issue,
-                  chunk: index + 1,
-                  originalId: issue.id
-                };
-                allIssues.push(issueWithContext);
-              });
-            }
-            
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-            }
-            
-          } catch (parseError) {
-            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
-          }
-        });
-        
-        // Check if any chunk recommended blocking
-        if (hasBlockingRecommendation) {
-          core.info(`🚨 At least one chunk recommended blocking the merge`);
-          return true;
-        }
-        
-        // Analyze all issues based on severity and confidence
-        if (allIssues.length > 0) {
-          const criticalIssues = allIssues.filter(issue => 
-            issue.severity_proposed === 'critical' && issue.confidence >= 0.6
-          );
-          
-          const highConfidenceCritical = criticalIssues.length;
-          
-          if (highConfidenceCritical > 0) {
-            core.info(`🚨 Found ${highConfidenceCritical} critical issues with confidence ≥ 0.6 across all chunks`);
-            core.info(`   Issues: ${criticalIssues.map(i => `${i.originalId} (${i.category}, Chunk ${i.chunk}, score: ${i.severity_score?.toFixed(1) || 'N/A'})`).join(', ')}`);
-            return true; // Block merge
-          }
-          
-          // Log all issues for transparency with severity scores
-          const allIssuesSummary = allIssues.map(issue => 
-            `${issue.severity_proposed.toUpperCase()} ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, confidence: ${issue.confidence})`
-          );
-          
-          if (allIssuesSummary.length > 0) {
-            core.info(`📋 All issues found: ${allIssuesSummary.join(', ')}`);
-          }
-        }
-        
-        // Check combined metrics
-        if (totalCriticalCount > 0) {
-          core.info(`🚨 Total critical issues count across all chunks: ${totalCriticalCount}`);
-          return true; // Block merge if any critical issues
-        }
-        
-        core.info('✅ No critical issues found across all chunks - safe to merge');
-        return false;
-      }
-      
-      // Fallback to old text-based parsing if JSON not found
-      core.warning('⚠️  JSON not found in response, falling back to text-based parsing');
-      return this.checkMergeDecisionLegacy(llmResponse);
-      
-    } catch (error) {
-      core.warning(`⚠️  Error parsing JSON response: ${error.message}`);
-      core.warning('⚠️  Falling back to text-based parsing');
-      return this.checkMergeDecisionLegacy(llmResponse);
-    }
-  }
-
-  /**
-   * Legacy text-based merge decision checking (fallback)
-   */
-  checkMergeDecisionLegacy(llmResponse) {
-    const response = llmResponse.toLowerCase();
-
-    // Check for explicit approval phrases
-    for (const phrase of CONFIG.APPROVAL_PHRASES) {
-      if (response.includes(phrase)) {
-        core.info(`✅ Found approval phrase: "${phrase}"`);
-        return false; // Safe to merge
-      }
-    }
-
-    // Check for explicit blocking phrases
-    for (const phrase of CONFIG.BLOCKING_PHRASES) {
-      if (response.includes(phrase)) {
-        core.info(`🚨 Found blocking phrase: "${phrase}"`);
-        return true; // Block merge
-      }
-    }
-
-    // Check for critical issue indicators
-    let criticalIssueCount = 0;
-    for (const issue of CONFIG.CRITICAL_ISSUES) {
-      if (response.includes(issue)) {
-        criticalIssueCount++;
-      }
-    }
-    
-    if (criticalIssueCount >= 2) {
-      core.info(`🚨 Found ${criticalIssueCount} critical issues without explicit approval`);
-      return true;
-    }
-    
-    core.info('⚠️  No explicit merge decision found, defaulting to allow merge');
-    return false;
-  }
-
-  /**
-   * Add "post code review" label to the PR if it doesn't exist
-   */
-  async addPostCodeReviewLabel() {
-    try {
-      const labelName = CONFIG.POST_REVIEW_LABEL;
-      
-      // Check if the label already exists on the PR
-      const { data: labels } = await this.octokit.rest.issues.listLabelsOnIssue({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: this.context.issue.number
-      });
-      
-      const labelExists = labels.some(label => label.name.toLowerCase() === labelName.toLowerCase());
-      
-      if (labelExists) {
-        core.info(`🏷️  Label "${labelName}" already exists on PR`);
-        return;
-      }
-      
-      // Try to add the label to the PR
-      await this.octokit.rest.issues.addLabels({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: this.context.issue.number,
-        labels: [labelName]
-      });
-      
-      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
-    } catch (error) {
-      // If the label doesn't exist in the repository, try to create it first
-      if (error.status === 422) {
-        try {
-          await this.createPostCodeReviewLabel();
-        } catch (createError) {
-          core.warning(`⚠️  Could not create "${labelName}" label: ${createError.message}`);
-        }
-      } else {
-        core.warning(`⚠️  Error adding "${labelName}" label: ${error.message}`);
-      }
-    }
-  }
-
-  /**
-   * Create the "post code review" label in the repository
-   */
-  async createPostCodeReviewLabel() {
-    try {
-      const labelName = CONFIG.POST_REVIEW_LABEL;
-      
-      await this.octokit.rest.issues.createLabel({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        name: labelName,
-        color: CONFIG.POST_REVIEW_LABEL_COLOR,
-        description: CONFIG.POST_REVIEW_LABEL_DESCRIPTION
-      });
-      
-      core.info(`🏷️  Created "${labelName}" label in repository`);
-      
-      // Now try to add it to the PR
-      await this.octokit.rest.issues.addLabels({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: this.context.issue.number,
-        labels: [labelName]
-      });
-      
-      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
-    } catch (error) {
-      core.warning(`⚠️  Error creating "${labelName}" label: ${error.message}`);
-    }
-  }
-
-  /**
-   * Delete previous DeepReview comments on the PR
-   */
-  async deletePreviousComments() {
-    try {
-      // Get all comments on the PR
-      const { data: comments } = await this.octokit.rest.issues.listComments({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: this.context.issue.number,
-        per_page: 100 // Limit to last 100 comments
-      });
-
-      // Find and delete comments made by our bot
-      const botComments = comments.filter(comment => 
-        comment.body.includes('## 🤖 DeepReview') // Match our bot's header
-      );
-
-      for (const comment of botComments) {
-        core.info(`🗑️ Deleting previous DeepReview comment: ${comment.id}`);
-        await this.octokit.rest.issues.deleteComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          comment_id: comment.id
-        });
-      }
-
-      if (botComments.length > 0) {
-        core.info(`✅ Deleted ${botComments.length} previous DeepReview comment(s)`);
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error deleting previous comments: ${error.message}`);
-      // Don't throw error - continue with adding new comment
-    }
-  }
-
-  /**
-   * Add PR comment to GitHub
-   */
-  async addPRComment(comment) {
-    if (this.context.eventName !== 'pull_request') {
-      core.info('⚠️  Not a pull request event, skipping PR comment');
-      return;
-    }
-
-    try {
-      // First delete any previous DeepReview comments
-      await this.deletePreviousComments();
-
-      // Add the new comment
-      await this.octokit.rest.issues.createComment({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: this.context.issue.number,
-        body: comment
-      });
-      
-      core.info('✅ Added new PR comment successfully');
-      
-      // Add "post code review" label to the PR
-      core.info('🏷️  Adding "post code review" label to PR...');
-      await this.addPostCodeReviewLabel();
-    } catch (error) {
-      core.error(`❌ Error adding PR comment: ${error.message}`);
-    }
-  }
-
-  /**
-   * Log review data to external endpoint (non-blocking)
-   */
-  async logReviewData(reviewData) {
-    // Only log if enabled in configuration
-    if (!CONFIG.ENABLE_REVIEW_LOGGING) {
-      core.info('📊 Review logging disabled in configuration');
-      return;
-    }
-    
-    // Fire and forget - don't await this to avoid blocking
-    this.sendReviewLog(reviewData).catch(error => {
-      core.warning(`⚠️  Failed to log review data: ${error.message}`);
-    });
-  }
-
-  /**
-   * Send review log to external endpoint
-   */
-  async sendReviewLog(reviewData) {
-    try {
-      const { default: fetch } = await __nccwpck_require__.e(/* import() */ 816).then(__nccwpck_require__.bind(__nccwpck_require__, 816));
-      
-      const response = await fetch(CONFIG.LOGGING_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepReview-GitHub-Action/1.8.0'
-        },
-        body: JSON.stringify(reviewData),
-        timeout: CONFIG.LOGGING_TIMEOUT
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      core.info('📊 Review data logged successfully');
-    } catch (error) {
-      throw new Error(`Failed to send review log: ${error.message}`);
-    }
-  }
-
-  /**
-   * Prepare review data for logging
-   */
-  prepareReviewLogData(shouldBlockMerge, changedFiles, llmResponse) {
-    try {
-      // Extract issues from LLM response
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
-      
-      // Prepare issues for logging (simplified format)
-      const logIssues = extractedData.issues.map(issue => ({
-        id: issue.id,
-        category: issue.category,
-        severity: issue.severity_proposed,
-        severity_score: issue.severity_score,
-        confidence: issue.confidence,
-        file: issue.file,
-        lines: issue.lines,
-        chunk: issue.chunk,
-        risk_factors: issue.risk_factors,
-        risk_factors_notes: issue.risk_factors_notes
-      }));
-      
-      const reviewData = {
-        department: this.department,
-        team: this.team,
-        head_branch: (this.context.payload.pull_request && this.context.payload.pull_request.head && this.context.payload.pull_request.head.ref) || 'HEAD',
-        files_reviewed: changedFiles.length,
-        issues: logIssues,
-        review_timestamp: new Date().toISOString(),
-        repository: `${this.context.repo.owner}/${this.context.repo.repo}`,
-        pr_number: (this.context.issue && this.context.issue.number) || null,
-        merge_blocked: shouldBlockMerge,
-        language: this.language,
-        provider: this.provider
-      };
-
-      return reviewData;
-    } catch (error) {
-      core.warning(`⚠️  Error preparing review log data: ${error.message}`);
-      // Return basic data if parsing fails
-      return {
-        department: this.department,
-        team: this.team,
-        head_branch: 'HEAD',
-        files_reviewed: changedFiles.length,
-        issues: [],
-        review_timestamp: new Date().toISOString(),
-        repository: `${this.context.repo.owner}/${this.context.repo.repo}`,
-        pr_number: null,
-        merge_blocked: shouldBlockMerge,
-        language: this.language,
-        provider: this.provider
-      };
-    }
-  }
-
-  /**
-   * Extract issues and metadata from LLM response
-   */
-  extractIssuesFromResponse(llmResponse) {
-    const issues = [];
-    const summaries = [];
-    let totalCriticalCount = 0;
-    let totalSuggestionCount = 0;
-    let jsonMatches = [];
-    
-    try {
-      // Try to extract JSON from the new XML-style format first
-      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
-      
-      if (jsonMatches.length > 0) {
-        jsonMatches.forEach((match, index) => {
-          try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
-            const reviewData = JSON.parse(jsonStr);
-            
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
-            }
-            
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
-                const issueWithContext = {
-                  ...issue,
-                  chunk: index + 1,
-                  originalId: issue.id
-                };
-                issues.push(issueWithContext);
-              });
-            }
-            
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
-            }
-            
-          } catch (parseError) {
-            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
-          }
-        });
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
-    }
-    
-    return {
-      issues,
-      summaries,
-      totalCriticalCount,
-      totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
-    };
-  }
-
-  /**
-   * Generate PR comment content with enhanced JSON parsing
-   */
-  generatePRComment(shouldBlockMerge, changedFiles, llmResponse) {
-    const status = shouldBlockMerge ? '❌ **DO NOT MERGE**' : '✅ **SAFE TO MERGE**';
-    const statusDescription = shouldBlockMerge 
-      ? 'Issues found that must be addressed before merging' 
-      : 'All changes are safe and well-implemented';
-
-    // Extract issues and metadata using centralized function
-    const extractedData = this.extractIssuesFromResponse(llmResponse);
-    
-    // Create review summary
-    let reviewSummary = '';
-    if (extractedData.summaries.length > 0) {
-      reviewSummary = `**AI Summary**: ${extractedData.summaries.join(' ')}\n\n`;
-    }
-    
-    // Create structured issue display
-    let issueDetails = '';
-    if (extractedData.issues.length > 0) {
-      const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
-      const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
-      
-      issueDetails = `## 🔍 **Issues Found**\n\n`;
-      
-      if (criticalIssues.length > 0) {
-        issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
-        criticalIssues.forEach(issue => {
-          const language = getLanguageForFile(issue.file);
-          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
-          if (issue.snippet) {
-            issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
-          }
-          issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
-          issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-          if (issue.fix_summary) {
-            issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
-          }
-          if (issue.fix_code_patch) {
-            issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
-          }
-          if (issue.tests) {
-            issueDetails += `- **Test**: ${issue.tests}\n`;
-          }
-          issueDetails += `\n`;
-        });
-      }
-      
-      if (suggestions.length > 0) {
-        issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
-        suggestions.forEach(issue => {
-          const language = getLanguageForFile(issue.file);
-          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
-          if (issue.snippet) {
-            issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
-          }
-          issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
-          issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
-          if (issue.fix_summary) {
-            issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
-          }
-          if (issue.fix_code_patch) {
-            issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
-          }
-          issueDetails += `\n`;
-        });
-      }
-      
-      // Add combined metrics
-      issueDetails += `### 📊 **Review Metrics**\n`;
-      issueDetails += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
-      issueDetails += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
-      issueDetails += `- **Total Issues**: ${extractedData.issues.length}\n`;
-      issueDetails += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
-    }
-
-    return `## 🤖 DeepReview
-
-**Overall Assessment**: ${status} - ${statusDescription}
-
-${reviewSummary}
-
-**Review Details:**
-- **Department**: ${this.department}
-- **Team**: ${this.team}
-- **Provider**: ${this.provider.toUpperCase()}
-- **Files Reviewed**: ${changedFiles.length} files
-- **Review Date**: ${new Date().toLocaleString()}
-- **Base Branch**: ${this.baseBranch}
-- **Head Branch**: ${(this.context.payload.pull_request && this.context.payload.pull_request.head && this.context.payload.pull_request.head.ref) || 'HEAD'}
-- **Path Filter**: ${this.pathToFiles.join(', ')}
-- **Ignored Patterns**: ${this.ignorePatterns.join(', ')}
-
----
-
-${issueDetails}
-
----
-
-**What to do next:**
-${shouldBlockMerge 
-  ? '1. 🔍 Review the critical issues above\n2. 🛠️ Fix the issues mentioned in the review\n3. 🔄 Push changes and re-run the review\n4. ✅ Merge only after all critical issues are resolved'
-  : '1. ✅ Review the suggestions above\n2. 🚀 Safe to merge when ready\n3. 💡 Consider any optimization suggestions as future improvements'
-}
-`;
-  }
-
-  /**
-   * Log review details
-   */
-  logReviewDetails() {
-    core.info(`🚀 Starting LLM Code Review (GitHub Actions)...\n`);
-    core.info(`🤖 Using ${this.provider.toUpperCase()} LLM`);
-    
-    core.info(`📋 Review Details:`);
-    core.info(`  - Department: ${this.department}`);
-    core.info(`  - Team: ${this.team}`);
-    core.info(`  - Base Branch: ${this.baseBranch}`);
-    core.info(`  - Head Ref: ${this.context.sha}`);
-    core.info(`  - Review Date: ${new Date().toLocaleString()}`);
-    core.info(`  - Reviewer: ${this.provider.toUpperCase()} LLM`);
-    core.info(`  - Language: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`);
-    core.info(`  - Path to Files: ${this.pathToFiles.join(', ')}`);
-    core.info(`  - Ignore Patterns: ${this.ignorePatterns.join(', ')}`);
-    core.info(`  - PR Number: ${(this.context.issue && this.context.issue.number) || 'Not available'}`);
-    core.info(`  - Chunk Size: ${Math.round(this.chunkSize / 1024)}KB (${this.chunkSize} bytes)`);
-    core.info(`  - Max Concurrent Requests: ${this.maxConcurrentRequests}`);
-    core.info(`  - Batch Delay: ${this.batchDelayMs}ms`);
-    
-    // Debug chunk size configuration
-    if (this.chunkSize <= 0) {
-      core.warning(`⚠️  WARNING: Chunk size is ${this.chunkSize} - this will cause excessive chunking!`);
-      core.warning(`   Check your chunk_size input parameter or CONFIG.DEFAULT_CHUNK_SIZE`);
-    }
-    
-    core.info('');
-  }
-
-  /**
-   * Log changed files
-   */
-  logChangedFiles(changedFiles) {
-    if (changedFiles.length === 0) {
-      core.info('✅ No changes detected - nothing to review');
-      return false;
-    }
-
-    core.info(`📁 Found ${changedFiles.length} changed files in repository:\n`);
-    changedFiles.forEach(filePath => {
-      core.info(`  📄 ${filePath}`);
-    });
-    core.info('');
-    return true;
-  }
-
-  /**
-   * Log LLM response
-   */
-  logLLMResponse(llmResponse) {
-    if (llmResponse) {
-      core.info('🤖 LLM Review Results:');
-      core.info('================================================================================');
-      core.info(llmResponse);
-      core.info('================================================================================\n');
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Log final decision with enhanced details
-   */
-  logFinalDecision(shouldBlockMerge, llmResponse) {
-    try {
-      // Use centralized function to extract issues and metadata
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
-      
-      if (extractedData.chunksProcessed > 0) {
-        core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
-        
-        if (shouldBlockMerge) {
-          const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
-          const highConfidenceCritical = criticalIssues.filter(i => i.confidence >= 0.6);
-          
-          core.setFailed(`🚨 MERGE BLOCKED: LLM review found ${criticalIssues.length} critical issues (${highConfidenceCritical.length} with high confidence ≥ 0.6) across ${extractedData.chunksProcessed} chunks`);
-          
-          if (highConfidenceCritical.length > 0) {
-            core.info('   High-confidence critical issues:');
-            highConfidenceCritical.forEach(issue => {
-              core.info(`   - ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, ${Math.round(issue.confidence * 100)}% confidence)`);
-              core.info(`     File: ${issue.file}, Lines: ${issue.lines.join('-')}`);
-              if (issue.risk_factors) {
-                core.info(`     Risk Factors: I:${issue.risk_factors.impact} E:${issue.risk_factors.exploitability} L:${issue.risk_factors.likelihood} B:${issue.risk_factors.blast_radius} Ev:${issue.risk_factors.evidence_strength}`);
-              }
-              core.info(`     Impact: ${issue.why_it_matters}`);
-            });
-          }
-          
-          core.info('   Please fix the critical issues mentioned above and run the review again.');
-        } else {
-          const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
-          core.info(`✅ MERGE APPROVED: No critical issues found across ${extractedData.chunksProcessed} chunks. ${suggestions.length} suggestions available for consideration.`);
-          
-          if (suggestions.length > 0) {
-            core.info('   Suggestions for improvement:');
-            suggestions.slice(0, 3).forEach(issue => { // Show first 3 suggestions
-              core.info(`   - ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, ${Math.round(issue.confidence * 100)}% confidence)`);
-            });
-            if (suggestions.length > 3) {
-              core.info(`   ... and ${suggestions.length - 3} more suggestions`);
-            }
-          }
-        }
-        
-        // Log combined metrics
-        core.info(`📊 Review Summary: ${extractedData.totalCriticalCount} critical, ${extractedData.totalSuggestionCount} suggestions across ${extractedData.chunksProcessed} chunks`);
-        
-        return;
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error parsing JSON for detailed logging: ${error.message}`);
-    }
-    
-    // Fallback to simple logging
-    if (shouldBlockMerge) {
-      core.setFailed('🚨 MERGE BLOCKED: LLM review found critical issues that must be addressed before merging.');
-      core.info('   Please fix the issues mentioned above and run the review again.');
-    } else {
-      core.info('✅ MERGE APPROVED: No critical issues found. Safe to merge.');
-    }
+    // Initialize LLM service
+    this.llmService = new LLMService(
+      this.inputs.provider,
+      this.inputs.maxTokens,
+      this.inputs.temperature
+    );
   }
 
   /**
    * Run the complete review process
    */
   async runReview() {
-    this.logReviewDetails();
+    // Log review details
+    this.loggingService.logReviewDetails(
+      this.inputs.department,
+      this.inputs.team,
+      this.baseBranch,
+      this.inputs.provider,
+      this.inputs.language,
+      this.inputs.pathToFiles,
+      this.inputs.ignorePatterns,
+      this.inputs.chunkSize,
+      this.inputs.maxConcurrentRequests,
+      this.inputs.batchDelayMs
+    );
 
-    const changedFiles = this.getChangedFiles();
+    // Get changed files
+    const changedFiles = this.fileService.getChangedFiles();
     
-    if (!this.logChangedFiles(changedFiles)) {
+    if (!this.loggingService.logChangedFiles(changedFiles)) {
       return;
     }
 
@@ -33742,25 +34370,46 @@ ${shouldBlockMerge
     core.info(`🤖 Running LLM Review of branch changes...\n`);
     
     // Get language-specific review prompt
-    const reviewPrompt = getReviewPrompt(this.language);
-    core.info(`📝 Using ${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || this.language} review prompt`);
+    const reviewPrompt = getReviewPrompt(this.inputs.language);
+    core.info(`📝 Using ${this.inputs.language} review prompt`);
       
-    const fullDiff = this.getFullDiff();
-    const llmResponse = await this.callLLM(reviewPrompt, fullDiff);
+    const fullDiff = this.fileService.getFullDiff();
+    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff);
     
-    if (this.logLLMResponse(llmResponse)) {
+    if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge
-      const shouldBlockMerge = this.checkMergeDecision(llmResponse);
+      const shouldBlockMerge = this.reviewService.checkMergeDecision(llmResponse);
       
       // Generate and post PR comment
-      const prComment = this.generatePRComment(shouldBlockMerge, changedFiles, llmResponse);
-      await this.addPRComment(prComment);
+      const prComment = this.reviewService.generatePRComment(
+        shouldBlockMerge,
+        changedFiles,
+        llmResponse,
+        this.inputs.department,
+        this.inputs.team,
+        this.inputs.provider,
+        this.baseBranch,
+        this.inputs.pathToFiles,
+        this.inputs.ignorePatterns
+      );
+      
+      await this.githubService.addPRComment(prComment);
       
       // Log review data to external endpoint (non-blocking)
-      const reviewData = this.prepareReviewLogData(shouldBlockMerge, changedFiles, llmResponse);
-      this.logReviewData(reviewData);
+      const reviewData = this.reviewService.prepareReviewLogData(
+        shouldBlockMerge,
+        changedFiles,
+        llmResponse,
+        this.inputs.department,
+        this.inputs.team,
+        this.inputs.language,
+        this.inputs.provider
+      );
       
-      this.logFinalDecision(shouldBlockMerge, llmResponse);
+      this.loggingService.logReviewData(reviewData);
+      
+      // Log final decision
+      this.loggingService.logFinalDecision(shouldBlockMerge, llmResponse);
     }
   }
 }

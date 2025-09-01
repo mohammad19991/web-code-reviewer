@@ -503,9 +503,142 @@ This repository includes automated workflows to keep the `latest` tag up-to-date
 - uses: tajawal/web-code-reviewer@v1.12.0
 ```
 
-## 🛠️ Development
+## 🌐 Adding New Languages
 
-### Local Development
+This action supports multiple programming languages out of the box, but you can easily add support for new languages. Here's a step-by-step guide:
+
+### Step 1: Add Language Configuration
+
+Edit `src/config/languages.js` and add your new language:
+
+```javascript
+const LANGUAGE_FILE_CONFIGS = {
+  // ... existing languages ...
+  rust: {
+    extensions: ['.rs', '.rlib'],
+    patterns: ['*.rs', '*.rlib'],
+    name: 'Rust'
+  }
+};
+
+const LANGUAGE_ROLE_CONFIGS = {
+  // ... existing languages ...
+  rust: {
+    role: 'Rust engineer',
+    language: 'Rust',
+    testExample: ' (e.g., cargo test)',
+    fileExample: 'src/main.rs'
+  }
+};
+```
+
+### Step 2: Add Security Overrides
+
+Edit `src/prompts/critical-overrides.js` and add language-specific security rules:
+
+```javascript
+const LANGUAGE_CRITICAL_OVERRIDES = {
+  // ... existing languages ...
+  rust: `Auto-critical overrides (regardless of score)
+- Unsafe blocks with untrusted input (unsafe { ... }).
+- Unchecked unwrapping (unwrap(), expect()) on user input.
+- Raw pointer dereferencing without bounds checking.
+- FFI calls without proper validation.
+- Panic conditions that could be triggered by user input.
+- Memory leaks through Rc/Arc cycles.
+- API keys, secrets, or credentials embedded in code.
+- Unbounded loops or recursion without safety checks.`
+};
+```
+
+### Step 3: Add Language-Specific Checks
+
+Edit `src/prompts/language-checks.js` and add review guidelines:
+
+```javascript
+const LANGUAGE_SPECIFIC_CHECKS = {
+  // ... existing languages ...
+  rust: `Rust-specific checks (only if visible in diff)
+- Memory safety: Check for proper ownership patterns, avoid unnecessary cloning.
+- Error handling: Prefer Result<T, E> over panic, handle all error cases.
+- Performance: Look for expensive operations in hot paths, unnecessary allocations.
+- Concurrency: Check for proper Send/Sync bounds, avoid data races.
+- Unsafe code: Minimize unsafe blocks, document safety invariants.
+- Testing: Ensure comprehensive test coverage, especially for unsafe code.`
+};
+```
+
+### Step 4: Update Constants Export
+
+Edit `src/constants.js` to ensure your new language is exported:
+
+```javascript
+// The language will be automatically included in the exports
+// No additional changes needed if you followed the naming conventions
+```
+
+### Step 5: Test Your New Language
+
+1. **Build the action**: `npm run build`
+2. **Test locally**: Use the test suite with your new language
+3. **Verify prompts**: Check that language-specific prompts are generated correctly
+
+### Example: Complete Rust Integration
+
+Here's what a complete Rust language integration looks like:
+
+```javascript
+// In src/config/languages.js
+rust: {
+  extensions: ['.rs', '.rlib'],
+  patterns: ['*.rs', '*.rlib'],
+  name: 'Rust'
+}
+
+// In src/prompts/critical-overrides.js
+rust: `Auto-critical overrides for Rust...`
+
+// In src/prompts/language-checks.js
+rust: `Rust-specific review guidelines...`
+```
+
+### Supported Language Features
+
+Each language automatically gets:
+
+- **File filtering** based on extensions
+- **Custom review prompts** with language-specific context
+- **Security overrides** for critical vulnerabilities
+- **Language-specific checks** and best practices
+- **Syntax highlighting** in PR comments
+- **Role-based prompts** (e.g., "Rust engineer")
+
+### Best Practices for New Languages
+
+1. **Security First**: Always include security-critical patterns in overrides
+2. **Language Idioms**: Focus on language-specific best practices
+3. **Common Pitfalls**: Include frequently encountered issues
+4. **Performance**: Consider performance implications and anti-patterns
+5. **Testing**: Ensure your language works with the test suite
+
+### Troubleshooting
+
+**Language not recognized?**
+- Check that extensions are properly defined
+- Verify the language name matches exactly
+- Ensure all three configuration files are updated
+
+**Prompts not generating correctly?**
+- Check the prompt builder for syntax errors
+- Verify all required configuration objects exist
+- Test with a simple language configuration first
+
+**Security overrides not working?**
+- Ensure the override text is properly formatted
+- Check that the language key matches exactly
+- Verify the override is included in the prompt builder
+
+## 🛠️ Development
 
 1. Clone the repository
 2. Install dependencies: `npm install`
