@@ -503,9 +503,81 @@ This repository includes automated workflows to keep the `latest` tag up-to-date
 - uses: tajawal/web-code-reviewer@v1.12.0
 ```
 
-## 🛠️ Development
+## 🌐 Adding New Languages
 
-### Local Development
+This action supports multiple programming languages out of the box, but you can easily add support for new languages. Here's a step-by-step guide:
+
+### Step 1: Add Language Configuration
+
+Edit `src/config/languages.js` and add your new language:
+
+```javascript
+const LANGUAGE_FILE_CONFIGS = {
+  // ... existing languages ...
+  rust: {
+    extensions: ['.rs', '.rlib'],
+    patterns: ['*.rs', '*.rlib'],
+    name: 'Rust'
+  }
+};
+
+const LANGUAGE_ROLE_CONFIGS = {
+  // ... existing languages ...
+  rust: {
+    role: 'Rust engineer',
+    language: 'Rust',
+    testExample: ' (e.g., cargo test)',
+    fileExample: 'src/main.rs'
+  }
+};
+```
+
+### Step 2: Add Security Overrides
+
+Edit `src/prompts/critical-overrides.js` and add language-specific security rules:
+
+```javascript
+const LANGUAGE_CRITICAL_OVERRIDES = {
+  // ... existing languages ...
+  rust: `Auto-critical overrides (regardless of score)
+- Unsafe blocks with untrusted input (unsafe { ... }).
+- Unchecked unwrapping (unwrap(), expect()) on user input.
+- Raw pointer dereferencing without bounds checking.
+- FFI calls without proper validation.
+- Panic conditions that could be triggered by user input.
+- Memory leaks through Rc/Arc cycles.
+- API keys, secrets, or credentials embedded in code.
+- Unbounded loops or recursion without safety checks.`
+};
+```
+
+### Step 3: Add Language-Specific Checks
+
+Edit `src/prompts/language-checks.js` and add review guidelines:
+
+```javascript
+const LANGUAGE_SPECIFIC_CHECKS = {
+  // ... existing languages ...
+  rust: `Rust-specific checks (only if visible in diff)
+- Memory safety: Check for proper ownership patterns, avoid unnecessary cloning.
+- Error handling: Prefer Result<T, E> over panic, handle all error cases.
+- Performance: Look for expensive operations in hot paths, unnecessary allocations.
+- Concurrency: Check for proper Send/Sync bounds, avoid data races.
+- Unsafe code: Minimize unsafe blocks, document safety invariants.
+- Testing: Ensure comprehensive test coverage, especially for unsafe code.`
+};
+```
+
+### Step 4: Update Constants Export
+
+Edit `src/constants.js` to ensure your new language is exported:
+
+```javascript
+// The language will be automatically included in the exports
+// No additional changes needed if you followed the naming conventions
+```
+
+## 🛠️ Development
 
 1. Clone the repository
 2. Install dependencies: `npm install`
