@@ -473,35 +473,6 @@ ignore_patterns: '.json,.md,.lock,.test.js,.spec.js,.log,.tmp,.cache,.swp'
 # Minimal ignore (only essential patterns)
 ignore_patterns: '.json,.md,.lock'
 ```
-```
-
-## 🏷️ Version Management
-
-### Automated Latest Tag Updates
-
-This repository includes automated workflows to keep the `latest` tag up-to-date:
-
-#### Automatic Updates
-- **Trigger**: Whenever a new version tag is pushed (e.g., `v1.13.0`)
-- **Workflow**: `.github/workflows/update-latest-tag.yml`
-- **Action**: Automatically updates the `latest` tag to point to the newest version
-
-#### Manual Updates
-- **Trigger**: Manual workflow dispatch from GitHub Actions tab
-- **Workflow**: `.github/workflows/manual-update-latest.yml`
-- **Options**: 
-  - Auto-detect latest version: Use `auto` as input
-  - Specify version: Provide specific version tag (e.g., `v1.12.0`)
-
-### Usage Options
-
-```yaml
-# Use latest version (automatically updated)
-- uses: tajawal/web-code-reviewer@latest
-
-# Use specific version (for stability)
-- uses: tajawal/web-code-reviewer@v1.12.0
-```
 
 ## 🌐 Adding New Languages
 
