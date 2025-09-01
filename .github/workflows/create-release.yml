@@ -29,8 +29,18 @@ jobs:
         id: get-version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=v$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Current package.json version: v$VERSION"
+          echo "📦 Current package.json version: $VERSION"
+          
+          # Parse version components
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+          
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "🆕 New version to be released: $NEW_VERSION"
+          echo "📝 Incremented patch version from $VERSION to $NEW_VERSION"
 
       - name: Check if tag already exists
         id: check-tag
@@ -75,6 +85,23 @@ jobs:
           git push origin "${{ steps.get-version.outputs.version }}"
           echo "✅ Tag ${{ steps.get-version.outputs.version }} created and pushed"
 
+      - name: Update package.json version
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          # Extract version without 'v' prefix for package.json
+          NEW_VERSION=${{ steps.get-version.outputs.version }}
+          NEW_VERSION=${NEW_VERSION#v}
+          
+          # Update package.json version
+          npm version $NEW_VERSION --no-git-tag-version
+          
+          # Commit and push the version update
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git push origin master
+          
+          echo "✅ Package.json updated to version $NEW_VERSION and pushed to master"
+
       - name: Create GitHub Release
         if: steps.check-tag.outputs.exists == 'false'
         uses: actions/create-release@v1
@@ -91,10 +118,12 @@ jobs:
           echo "🎉 Release ${{ steps.get-version.outputs.version }} created successfully!"
           echo "📝 Release notes have been generated from commits"
           echo "🏷️ Tag has been created and pushed"
+          echo "📦 Package.json version has been updated and pushed to master"
           echo ""
           echo "Next steps:"
           echo "1. Verify the release on GitHub"
           echo "2. The update-latest-tag workflow will run automatically"
+          echo "3. Package.json is now ready for the next development cycle"
 
       - name: Tag already exists message
         if: steps.check-tag.outputs.exists == 'true'
