@@ -577,67 +577,6 @@ Edit `src/constants.js` to ensure your new language is exported:
 // No additional changes needed if you followed the naming conventions
 ```
 
-### Step 5: Test Your New Language
-
-1. **Build the action**: `npm run build`
-2. **Test locally**: Use the test suite with your new language
-3. **Verify prompts**: Check that language-specific prompts are generated correctly
-
-### Example: Complete Rust Integration
-
-Here's what a complete Rust language integration looks like:
-
-```javascript
-// In src/config/languages.js
-rust: {
-  extensions: ['.rs', '.rlib'],
-  patterns: ['*.rs', '*.rlib'],
-  name: 'Rust'
-}
-
-// In src/prompts/critical-overrides.js
-rust: `Auto-critical overrides for Rust...`
-
-// In src/prompts/language-checks.js
-rust: `Rust-specific review guidelines...`
-```
-
-### Supported Language Features
-
-Each language automatically gets:
-
-- **File filtering** based on extensions
-- **Custom review prompts** with language-specific context
-- **Security overrides** for critical vulnerabilities
-- **Language-specific checks** and best practices
-- **Syntax highlighting** in PR comments
-- **Role-based prompts** (e.g., "Rust engineer")
-
-### Best Practices for New Languages
-
-1. **Security First**: Always include security-critical patterns in overrides
-2. **Language Idioms**: Focus on language-specific best practices
-3. **Common Pitfalls**: Include frequently encountered issues
-4. **Performance**: Consider performance implications and anti-patterns
-5. **Testing**: Ensure your language works with the test suite
-
-### Troubleshooting
-
-**Language not recognized?**
-- Check that extensions are properly defined
-- Verify the language name matches exactly
-- Ensure all three configuration files are updated
-
-**Prompts not generating correctly?**
-- Check the prompt builder for syntax errors
-- Verify all required configuration objects exist
-- Test with a simple language configuration first
-
-**Security overrides not working?**
-- Ensure the override text is properly formatted
-- Check that the language key matches exactly
-- Verify the override is included in the prompt builder
-
 ## 🛠️ Development
 
 1. Clone the repository
