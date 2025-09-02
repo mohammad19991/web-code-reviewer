@@ -49,7 +49,20 @@ const LANGUAGE_ROLE_CONFIGS = {
     language: 'PHP',
     testExample: ' (e.g., Pest/PHPUnit feature test)',
     fileExample: 'app/Http/Controllers/UserController.php'
+  },
+  qa_web: {
+    role: 'Web QA - Automation Engineer',
+    language: 'JavaScript/TypeScript',
+    testExample: ' (e.g., RTL/jest/vitest).',
+    fileExample: 'src/components/Table.tsx'
+  },
+  qa_web: {
+    role: 'Android QA - Automation Engineer',
+    language: 'Java',
+    testExample: ' (e.g., JUnit + MockMvc)',
+    fileExample: 'src/main/java/com/example/user/UserService.java'
   }
+
 };
 
 module.exports = {
