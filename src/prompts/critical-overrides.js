@@ -60,6 +60,15 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
 - Path traversal in file operations without sanitization.
 - API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+`,
+
+qa: `Auto-critical overrides (regardless of score)
+- Absolute XPath locators, non-deterministic selectors that can cause flakiness in web and android tests.
+- Unbounded retries, or long sleeps (cy.wait, Thread.sleep) that can significantly increase execution time.
+- Tests that disable core security controls (e.g., SSL/TLS validation, browser/web security flags).
+- Direct DB or filesystem manipulation in tests without teardown/cleanup (environment pollution).
+- Sensitive artifacts (logs, screenshots, videos) exposing PII or secrets published outside QA infra.
+- Skipped or force-passed tests (it.skip, @Ignore) committed into main branches.
 `
 };
 
