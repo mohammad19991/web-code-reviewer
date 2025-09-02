@@ -29,11 +29,11 @@ const LANGUAGE_SPECIFIC_CHECKS = {
 - Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
 - Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
 
-qa: `QA Automation best practices (only if visible in diff)
+qa_web: `QA Automation best practices (only if visible in diff)
 - Flakiness:
   • Prefer data-test-id or accessibility identifiers over absolute XPath/CSS selectors.
   • Avoid brittle locators (auto-generated IDs, deeply nested selectors).
-  • Use explicit waits/conditions (cy.intercept+wait,) instead of hard sleeps (cy.wait, Thread.sleep).
+  • Use explicit waits/conditions (cy.intercept + wait) instead of hard sleeps (cy.wait).
 - Test design:
   • Keep tests atomic and independent (no shared global state between tests).
   • Follow AAA (Arrange–Act–Assert) structure for clarity.
@@ -42,7 +42,7 @@ qa: `QA Automation best practices (only if visible in diff)
 - Maintainability:
   • Consistent naming for test data and accounts (qa_user, sandbox_key).
   • Centralize environment/config handling; avoid hardcoding URLs or envs in multiple places.
-  • Cleanup created data (DB rows, files, test accounts) at teardown.
+  • Cleanup created data (test accounts, browser storage, cookies) at teardown.
   • Use fixtures/factories for repeatable test data instead of inline hardcoded blobs.
 - Performance:
   • Minimize heavy setup/teardown in every test (favor suite-level setup with isolation).
@@ -54,9 +54,8 @@ qa: `QA Automation best practices (only if visible in diff)
   • Tag/annotate tests by category (smoke, regression, e2e) for selective runs.
 - Framework specifics:
   • Cypress/Web: prefer cy.intercept() over stubbing XHR manually; use cypress-testing-library for user-centric queries.
-  • Appium/Android: prefer accessibilityId/UIAutomator2 locators over XPath; avoid hard sleeps in favor of waitForElement.
-  • REST Assured/Backend: assert both status codes and response payloads; parameterize base URIs; include timeouts; avoid swallowing exceptions.
 `
+
 };
 
 module.exports = LANGUAGE_SPECIFIC_CHECKS;
