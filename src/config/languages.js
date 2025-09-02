@@ -52,17 +52,22 @@ const LANGUAGE_ROLE_CONFIGS = {
   },
   qa_web: {
     role: 'Web QA - Automation Engineer',
-    language: 'JavaScript/TypeScript',
-    testExample: ' (e.g., RTL/jest/vitest).',
-    fileExample: 'src/components/Table.tsx'
+    language: 'JavaScript',
+    testExample: '(automation framework & tools: cypress )',
+    fileExample: 'cypress/e2e/desktop/features/martech/home/activatesHomePage.spec.js'
   },
-  qa_web: {
+  qa_android: {
     role: 'Android QA - Automation Engineer',
     language: 'Java',
-    testExample: ' (e.g., JUnit + MockMvc)',
+    testExample: '(automation framework & tools: appium, junit)',
+    fileExample: 'src/test/java/com/travel/tests/flights/searchResults/FlightPriceCalendarRGTest.java'
+  },
+  qa_backend: {
+    role: 'Backend QA - Automation Engineer',
+    language: 'Java',
+    testExample: '(automation framework & tools: RestAssured, junit)',
     fileExample: 'src/main/java/com/example/user/UserService.java'
   }
-
 };
 
 module.exports = {
