@@ -116,6 +116,9 @@ jobs:
           # Update package.json version
           npm version $NEW_VERSION --no-git-tag-version
           
+          # Pull latest changes to avoid conflicts
+          git pull origin master --rebase
+          
           # Commit and push the version update
           git add package.json package-lock.json
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
