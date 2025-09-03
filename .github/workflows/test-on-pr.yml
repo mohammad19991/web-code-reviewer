@@ -35,9 +35,6 @@ jobs:
       - name: Check code formatting
         run: npm run format:check
         
-      - name: Run unit tests with coverage
-        run: npm run test:coverage
-        
       - name: Run all tests
         run: npm test
         
@@ -52,14 +49,6 @@ jobs:
           fi
           echo "✅ Build successful - dist/index.js created"
           ls -la dist/
-          
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
           
       - name: Comment PR with test results
         if: github.event_name == 'pull_request'
