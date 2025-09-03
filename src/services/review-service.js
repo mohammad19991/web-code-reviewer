@@ -17,32 +17,38 @@ class ReviewService {
     try {
       // Try to extract JSON from the new XML-style format first
       const jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g);
-      
+
       if (jsonMatches && jsonMatches.length > 0) {
         core.info(`📊 Found ${jsonMatches.length} JSON objects in XML format`);
-        
+
         // Parse all JSON objects and combine their data
         const allIssues = [];
         let hasBlockingRecommendation = false;
         let totalCriticalCount = 0;
-        
+
         jsonMatches.forEach((match, index) => {
           try {
             const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
-            
-            core.info(`📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`);
-            
+
+            core.info(
+              `📋 Parsing JSON object ${index + 1}/${jsonMatches.length}: ${reviewData.issues?.length || 0} issues`
+            );
+
             // Check final recommendation from this chunk
             if (reviewData.final_recommendation) {
               if (reviewData.final_recommendation === 'do_not_merge') {
                 hasBlockingRecommendation = true;
-                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (BLOCK)`);
+                core.info(
+                  `🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (BLOCK)`
+                );
               } else {
-                core.info(`🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (APPROVE)`);
+                core.info(
+                  `🤖 Chunk ${index + 1} final recommendation: ${reviewData.final_recommendation} (APPROVE)`
+                );
               }
             }
-            
+
             // Collect issues
             if (reviewData.issues && Array.isArray(reviewData.issues)) {
               reviewData.issues.forEach(issue => {
@@ -55,61 +61,64 @@ class ReviewService {
                 allIssues.push(issueWithContext);
               });
             }
-            
+
             // Collect metrics
             if (reviewData.metrics) {
               totalCriticalCount += reviewData.metrics.critical_count || 0;
             }
-            
           } catch (parseError) {
             core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
           }
         });
-        
+
         // Check if any chunk recommended blocking
         if (hasBlockingRecommendation) {
-          core.info(`🚨 At least one chunk recommended blocking the merge`);
+          core.info('🚨 At least one chunk recommended blocking the merge');
           return true;
         }
-        
+
         // Analyze all issues based on severity and confidence
         if (allIssues.length > 0) {
-          const criticalIssues = allIssues.filter(issue => 
-            issue.severity_proposed === 'critical' && issue.confidence >= 0.6
+          const criticalIssues = allIssues.filter(
+            issue => issue.severity_proposed === 'critical' && issue.confidence >= 0.6
           );
-          
+
           const highConfidenceCritical = criticalIssues.length;
-          
+
           if (highConfidenceCritical > 0) {
-            core.info(`🚨 Found ${highConfidenceCritical} critical issues with confidence ≥ 0.6 across all chunks`);
-            core.info(`   Issues: ${criticalIssues.map(i => `${i.originalId} (${i.category}, Chunk ${i.chunk}, score: ${i.severity_score?.toFixed(1) || 'N/A'})`).join(', ')}`);
+            core.info(
+              `🚨 Found ${highConfidenceCritical} critical issues with confidence ≥ 0.6 across all chunks`
+            );
+            core.info(
+              `   Issues: ${criticalIssues.map(i => `${i.originalId} (${i.category}, Chunk ${i.chunk}, score: ${i.severity_score?.toFixed(1) || 'N/A'})`).join(', ')}`
+            );
             return true; // Block merge
           }
-          
+
           // Log all issues for transparency with severity scores
-          const allIssuesSummary = allIssues.map(issue => 
-            `${issue.severity_proposed.toUpperCase()} ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, confidence: ${issue.confidence})`
+          const allIssuesSummary = allIssues.map(
+            issue =>
+              `${issue.severity_proposed.toUpperCase()} ${issue.originalId}: ${issue.category} (Chunk ${issue.chunk}, score: ${issue.severity_score?.toFixed(1) || 'N/A'}, confidence: ${issue.confidence})`
           );
-          
+
           if (allIssuesSummary.length > 0) {
             core.info(`📋 All issues found: ${allIssuesSummary.join(', ')}`);
           }
         }
-        
+
         // Check combined metrics
         if (totalCriticalCount > 0) {
           core.info(`🚨 Total critical issues count across all chunks: ${totalCriticalCount}`);
           return true; // Block merge if any critical issues
         }
-        
+
         core.info('✅ No critical issues found across all chunks - safe to merge');
         return false;
       }
-      
+
       // Fallback to old text-based parsing if JSON not found
       core.warning('⚠️  JSON not found in response, falling back to text-based parsing');
       return this.checkMergeDecisionLegacy(llmResponse);
-      
     } catch (error) {
       core.warning(`⚠️  Error parsing JSON response: ${error.message}`);
       core.warning('⚠️  Falling back to text-based parsing');
@@ -146,12 +155,12 @@ class ReviewService {
         criticalIssueCount++;
       }
     }
-    
+
     if (criticalIssueCount >= 2) {
       core.info(`🚨 Found ${criticalIssueCount} critical issues without explicit approval`);
       return true;
     }
-    
+
     core.info('⚠️  No explicit merge decision found, defaulting to allow merge');
     return false;
   }
@@ -165,22 +174,22 @@ class ReviewService {
     let totalCriticalCount = 0;
     let totalSuggestionCount = 0;
     let jsonMatches = [];
-    
+
     try {
       // Try to extract JSON from the new XML-style format first
       jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
-      
+
       if (jsonMatches.length > 0) {
         jsonMatches.forEach((match, index) => {
           try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');;
+            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
-            
+
             // Collect summary
             if (reviewData.summary) {
               summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
             }
-            
+
             // Collect issues
             if (reviewData.issues && Array.isArray(reviewData.issues)) {
               reviewData.issues.forEach(issue => {
@@ -193,13 +202,12 @@ class ReviewService {
                 issues.push(issueWithContext);
               });
             }
-            
+
             // Collect metrics
             if (reviewData.metrics) {
               totalCriticalCount += reviewData.metrics.critical_count || 0;
               totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
             }
-            
           } catch (parseError) {
             core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
           }
@@ -208,7 +216,7 @@ class ReviewService {
     } catch (error) {
       core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
     }
-    
+
     return {
       issues,
       summaries,
@@ -221,29 +229,39 @@ class ReviewService {
   /**
    * Generate PR comment content with enhanced JSON parsing
    */
-  generatePRComment(shouldBlockMerge, changedFiles, llmResponse, department, team, provider, baseBranch, pathToFiles, ignorePatterns) {
+  generatePRComment(
+    shouldBlockMerge,
+    changedFiles,
+    llmResponse,
+    department,
+    team,
+    provider,
+    baseBranch,
+    pathToFiles,
+    ignorePatterns
+  ) {
     const status = shouldBlockMerge ? '❌ **DO NOT MERGE**' : '✅ **SAFE TO MERGE**';
-    const statusDescription = shouldBlockMerge 
-      ? 'Issues found that must be addressed before merging' 
+    const statusDescription = shouldBlockMerge
+      ? 'Issues found that must be addressed before merging'
       : 'All changes are safe and well-implemented';
 
     // Extract issues and metadata using centralized function
     const extractedData = this.extractIssuesFromResponse(llmResponse);
-    
+
     // Create review summary
     let reviewSummary = '';
     if (extractedData.summaries.length > 0) {
       reviewSummary = `**AI Summary**: ${extractedData.summaries.join(' ')}\n\n`;
     }
-    
+
     // Create structured issue display
     let issueDetails = '';
     if (extractedData.issues.length > 0) {
       const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
       const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
-      
-      issueDetails = `## 🔍 **Issues Found**\n\n`;
-      
+
+      issueDetails = '## 🔍 **Issues Found**\n\n';
+
       if (criticalIssues.length > 0) {
         issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
         criticalIssues.forEach(issue => {
@@ -265,10 +283,10 @@ class ReviewService {
           if (issue.tests) {
             issueDetails += `- **Test**: ${issue.tests}\n`;
           }
-          issueDetails += `\n`;
+          issueDetails += '\n';
         });
       }
-      
+
       if (suggestions.length > 0) {
         issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
         suggestions.forEach(issue => {
@@ -287,12 +305,12 @@ class ReviewService {
           if (issue.fix_code_patch) {
             issueDetails += `\`\`\`${language}\n${issue.fix_code_patch}\n\`\`\`\n`;
           }
-          issueDetails += `\n`;
+          issueDetails += '\n';
         });
       }
-      
+
       // Add combined metrics
-      issueDetails += `### 📊 **Review Metrics**\n`;
+      issueDetails += '### 📊 **Review Metrics**\n';
       issueDetails += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
       issueDetails += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
       issueDetails += `- **Total Issues**: ${extractedData.issues.length}\n`;
@@ -323,9 +341,10 @@ ${issueDetails}
 ---
 
 **What to do next:**
-${shouldBlockMerge 
-  ? '1. 🔍 Review the critical issues above\n2. 🛠️ Fix the issues mentioned in the review\n3. 🔄 Push changes and re-run the review\n4. ✅ Merge only after all critical issues are resolved'
-  : '1. ✅ Review the suggestions above\n2. 🚀 Safe to merge when ready\n3. 💡 Consider any optimization suggestions as future improvements'
+${
+  shouldBlockMerge
+    ? '1. 🔍 Review the critical issues above\n2. 🛠️ Fix the issues mentioned in the review\n3. 🔄 Push changes and re-run the review\n4. ✅ Merge only after all critical issues are resolved'
+    : '1. ✅ Review the suggestions above\n2. 🚀 Safe to merge when ready\n3. 💡 Consider any optimization suggestions as future improvements'
 }
 `;
   }
@@ -333,11 +352,19 @@ ${shouldBlockMerge
   /**
    * Prepare review data for logging
    */
-  prepareReviewLogData(shouldBlockMerge, changedFiles, llmResponse, department, team, language, provider) {
+  prepareReviewLogData(
+    shouldBlockMerge,
+    changedFiles,
+    llmResponse,
+    department,
+    team,
+    language,
+    provider
+  ) {
     try {
       // Extract issues from LLM response
       const extractedData = this.extractIssuesFromResponse(llmResponse);
-      
+
       // Prepare issues for logging (simplified format)
       const logIssues = extractedData.issues.map(issue => ({
         id: issue.id,
@@ -351,7 +378,7 @@ ${shouldBlockMerge
         risk_factors: issue.risk_factors,
         risk_factors_notes: issue.risk_factors_notes
       }));
-      
+
       const reviewData = {
         department,
         team,
@@ -360,7 +387,8 @@ ${shouldBlockMerge
         issues: logIssues,
         review_timestamp: new Date().toISOString(),
         repository: `${process.env.GITHUB_REPOSITORY || 'unknown/unknown'}`,
-        pr_number: process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_EVENT_NUMBER : null,
+        pr_number:
+          process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.GITHUB_EVENT_NUMBER : null,
         merge_blocked: shouldBlockMerge,
         language,
         provider

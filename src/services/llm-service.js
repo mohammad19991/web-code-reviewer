@@ -31,7 +31,7 @@ class LLMService {
     if (totalChunks === 1) {
       return prompt;
     }
-    
+
     return `${prompt}
 
 **CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
@@ -50,17 +50,17 @@ class LLMService {
    */
   async processChunksIntelligently(prompt, chunks) {
     const results = [];
-    
+
     if (chunks.length <= 3) {
       // For small numbers, process sequentially with delays
       core.info(`📦 Processing ${chunks.length} chunks sequentially (small batch)`);
-      
+
       for (let i = 0; i < chunks.length; i++) {
         core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
-        
+
         const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
         results.push(result);
-        
+
         if (i + 1 < chunks.length) {
           core.info(`⏳ Waiting ${this.batchDelayMs}ms before next request...`);
           await new Promise(resolve => setTimeout(resolve, this.batchDelayMs));
@@ -69,17 +69,19 @@ class LLMService {
     } else {
       // For larger numbers, use controlled concurrency
       const maxConcurrent = Math.min(2, chunks.length); // Max 2 concurrent requests
-      core.info(`📦 Processing ${chunks.length} chunks with controlled concurrency (max ${maxConcurrent})`);
-      
+      core.info(
+        `📦 Processing ${chunks.length} chunks with controlled concurrency (max ${maxConcurrent})`
+      );
+
       for (let i = 0; i < chunks.length; i += maxConcurrent) {
         const batch = chunks.slice(i, i + maxConcurrent);
-        const batchPromises = batch.map((chunk, batchIndex) => 
+        const batchPromises = batch.map((chunk, batchIndex) =>
           this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
         );
-        
+
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults);
-        
+
         // Add delay between batches
         if (i + maxConcurrent < chunks.length) {
           core.info(`⏳ Waiting ${this.batchDelayMs}ms before next batch...`);
@@ -87,7 +89,7 @@ class LLMService {
         }
       }
     }
-    
+
     return results;
   }
 
@@ -107,8 +109,10 @@ class LLMService {
    * Handle token limit exceeded errors
    */
   handleTokenLimitExceeded(chunkIndex, totalChunks) {
-    core.warning(`⚠️  Token limit exceeded for chunk ${chunkIndex + 1}. Creating summary review...`);
-    
+    core.warning(
+      `⚠️  Token limit exceeded for chunk ${chunkIndex + 1}. Creating summary review...`
+    );
+
     return `**CHUNK ${chunkIndex + 1}/${totalChunks} - TOKEN LIMIT EXCEEDED**
 
 This chunk was too large to process completely. Here's a summary of what was detected:
@@ -132,13 +136,13 @@ This chunk was too large to process completely. Here's a summary of what was det
    */
   validateLLMResponse(data, provider) {
     if (!data) return false;
-    
+
     if (provider === 'claude') {
       return data.content && Array.isArray(data.content) && data.content.length > 0;
     } else if (provider === 'openai') {
       return data.choices && Array.isArray(data.choices) && data.choices.length > 0;
     }
-    
+
     return false;
   }
 
@@ -160,11 +164,11 @@ This chunk was too large to process completely. Here's a summary of what was det
   async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const { default: fetch } = await import('node-fetch');
-        
+
         const providerConfig = LLM_PROVIDERS[this.provider];
         if (!providerConfig) {
           throw new Error(`Unsupported LLM provider: ${this.provider}`);
@@ -178,15 +182,20 @@ This chunk was too large to process completely. Here's a summary of what was det
 
         // Estimate token count for this chunk
         const estimatedTokens = this.estimateTokenCount(prompt, diffChunk);
-        if (estimatedTokens > 180000) { // Leave buffer for Claude's 200k limit
-          core.warning(`⚠️  Chunk ${chunkIndex + 1} estimated at ${estimatedTokens} tokens - may exceed limits`);
+        if (estimatedTokens > 180000) {
+          // Leave buffer for Claude's 200k limit
+          core.warning(
+            `⚠️  Chunk ${chunkIndex + 1} estimated at ${estimatedTokens} tokens - may exceed limits`
+          );
         }
 
         // Create chunk-specific prompt with better context
         const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
-        
-        core.info(`🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`);
-        
+
+        core.info(
+          `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
+        );
+
         const response = await fetch(providerConfig.url, {
           method: 'POST',
           headers: providerConfig.headers(apiKey),
@@ -197,11 +206,14 @@ This chunk was too large to process completely. Here's a summary of what was det
         if (!response.ok) {
           const errorText = await response.text();
           const errorData = this.parseErrorResponse(errorText);
-          
+
           if (response.status === 429) {
             // Rate limit - exponential backoff
-            const retryAfter = parseInt(response.headers.get('retry-after')) || Math.pow(2, attempt);
-            core.warning(`⚠️  Rate limit hit for chunk ${chunkIndex + 1}. Waiting ${retryAfter}s (attempt ${attempt}/${maxRetries})...`);
+            const retryAfter =
+              parseInt(response.headers.get('retry-after')) || Math.pow(2, attempt);
+            core.warning(
+              `⚠️  Rate limit hit for chunk ${chunkIndex + 1}. Waiting ${retryAfter}s (attempt ${attempt}/${maxRetries})...`
+            );
             await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
             continue; // Retry with next attempt
           } else if (response.status === 400 && errorData.includes('token')) {
@@ -211,48 +223,57 @@ This chunk was too large to process completely. Here's a summary of what was det
           } else if (response.status >= 500) {
             // Server error - retry with exponential backoff
             const delay = baseDelay * Math.pow(2, attempt - 1);
-            core.warning(`⚠️  Server error (${response.status}) for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
+            core.warning(
+              `⚠️  Server error (${response.status}) for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`
+            );
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           } else {
-            throw new Error(`${this.provider.toUpperCase()} API error: ${response.status} ${response.statusText} - ${errorData}`);
+            throw new Error(
+              `${this.provider.toUpperCase()} API error: ${response.status} ${response.statusText} - ${errorData}`
+            );
           }
         }
 
         const data = await response.json();
-        
+
         // Validate response structure
         if (!this.validateLLMResponse(data, this.provider)) {
           throw new Error(`Invalid response structure from ${this.provider.toUpperCase()} API`);
         }
-        
+
         const result = providerConfig.extractResponse(data);
-        
+
         // Validate extracted response
         if (!result || typeof result !== 'string' || result.trim().length === 0) {
           throw new Error(`Empty or invalid response from ${this.provider.toUpperCase()} API`);
         }
-        
-        core.info(`✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${result.length} chars)`);
+
+        core.info(
+          `✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${result.length} chars)`
+        );
         return result;
-        
       } catch (error) {
         if (error.message.includes('Cannot find module') || error.message.includes('node-fetch')) {
           core.error('❌ node-fetch not found. Please install it with: npm install node-fetch');
           return null;
         }
-        
+
         if (attempt === maxRetries) {
-          core.error(`❌ LLM review failed for chunk ${chunkIndex + 1} after ${maxRetries} attempts: ${error.message}`);
+          core.error(
+            `❌ LLM review failed for chunk ${chunkIndex + 1} after ${maxRetries} attempts: ${error.message}`
+          );
           return null;
         } else {
           const delay = baseDelay * Math.pow(2, attempt - 1);
-          core.warning(`⚠️  Attempt ${attempt}/${maxRetries} failed for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`);
+          core.warning(
+            `⚠️  Attempt ${attempt}/${maxRetries} failed for chunk ${chunkIndex + 1}. Retrying in ${delay}ms...`
+          );
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
-    
+
     return null;
   }
 
@@ -269,46 +290,49 @@ This chunk was too large to process completely. Here's a summary of what was det
 
       const diffSize = Buffer.byteLength(diff, 'utf8');
       const estimatedTokens = this.estimateTokenCount(prompt, diff);
-      
+
       core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
-      
+
       // If diff is small enough, process it normally
       if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
-        core.info(`🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`);
+        core.info(
+          `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
+        );
         return await this.callLLMChunk(prompt, diff, 0, 1);
       }
-      
+
       // Split diff into chunks with intelligent sizing
       const chunks = this.splitDiffIntoChunks(diff);
-      
+
       if (chunks.length === 0) {
         core.warning('⚠️  No chunks created from diff');
         return null;
       }
-      
+
       core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
-      
+
       // Process chunks with adaptive concurrency
       const results = await this.processChunksIntelligently(prompt, chunks);
-      
+
       // Filter out failed responses and combine results
       const validResults = results.filter(result => result !== null);
-      
+
       if (validResults.length === 0) {
         core.error('❌ All LLM API calls failed');
         return null;
       }
-      
+
       if (validResults.length < chunks.length) {
-        core.warning(`⚠️  Only ${validResults.length}/${chunks.length} chunks processed successfully`);
+        core.warning(
+          `⚠️  Only ${validResults.length}/${chunks.length} chunks processed successfully`
+        );
       }
-      
+
       // Combine all responses with improved logic
-      const combinedResponse = this.combineLLMResponses(validResults, chunks.length);
-      
+      const combinedResponse = this.combineLLMResponses(validResults);
+
       core.info(`✅ Successfully processed ${validResults.length}/${chunks.length} chunks`);
       return combinedResponse;
-      
     } catch (error) {
       core.error(`❌ LLM review failed: ${error.message}`);
       return null;
@@ -325,20 +349,22 @@ This chunk was too large to process completely. Here's a summary of what was det
 
     // Ensure chunk size is reasonable
     if (this.chunkSize <= 0) {
-      core.warning(`⚠️  Invalid chunk size: ${this.chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`);
+      core.warning(
+        `⚠️  Invalid chunk size: ${this.chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`
+      );
       return [diff]; // Return as single chunk if chunk size is invalid
     }
 
     const chunks = [];
     let currentChunk = '';
     let currentSize = 0;
-    
+
     // Split by file boundaries (--- File: ... ---)
     const fileSections = diff.split(/(?=--- File: )/);
-    
+
     for (const section of fileSections) {
       const sectionSize = Buffer.byteLength(section, 'utf8');
-      
+
       // If adding this section would exceed chunk size, start a new chunk
       if (currentSize + sectionSize > this.chunkSize && currentChunk.length > 0) {
         chunks.push(currentChunk);
@@ -349,41 +375,45 @@ This chunk was too large to process completely. Here's a summary of what was det
         currentSize += sectionSize;
       }
     }
-    
+
     // Add the last chunk if it has content
     if (currentChunk.length > 0) {
       chunks.push(currentChunk);
     }
-    
-    core.info(`📦 Split diff into ${chunks.length} chunks (max ${Math.round(this.chunkSize / 1024)}KB each)`);
-    
+
+    core.info(
+      `📦 Split diff into ${chunks.length} chunks (max ${Math.round(this.chunkSize / 1024)}KB each)`
+    );
+
     // Warn if too many chunks are created
     if (chunks.length > 50) {
-      core.warning(`⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`);
+      core.warning(
+        `⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`
+      );
     }
-    
+
     return chunks;
   }
 
   /**
    * Combine multiple LLM responses into a single coherent review with improved analysis
    */
-  combineLLMResponses(responses, totalChunks) {
+  combineLLMResponses(responses) {
     if (responses.length === 0) {
       return 'No review results available.';
     }
-    
+
     if (responses.length === 1) {
       return responses[0];
     }
-    
+
     // Extract and categorize information from each response
     let combinedResponse = '';
-    
-    responses.forEach((response) => {
+
+    responses.forEach(response => {
       combinedResponse += response;
     });
-    
+
     return combinedResponse;
   }
 }

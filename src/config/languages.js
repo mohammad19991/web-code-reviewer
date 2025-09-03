@@ -60,7 +60,8 @@ const LANGUAGE_ROLE_CONFIGS = {
     role: 'Android QA - Automation Engineer',
     language: 'Java',
     testExample: '(automation framework & tools: appium, junit)',
-    fileExample: 'src/test/java/com/travel/tests/flights/searchResults/FlightPriceCalendarRGTest.java'
+    fileExample:
+      'src/test/java/com/travel/tests/flights/searchResults/FlightPriceCalendarRGTest.java'
   },
   qa_backend: {
     role: 'Backend QA - Automation Engineer',
