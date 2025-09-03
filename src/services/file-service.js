@@ -22,27 +22,31 @@ class FileService {
     try {
       core.info('🔍 Detecting changed files...');
       core.info(`Comparing ${process.env.GITHUB_SHA || 'HEAD'} against origin/${this.baseBranch}`);
-      core.info(`🔤 Language filter: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`);
-      
-      const rawOutput = execSync(`git diff --name-only origin/${this.baseBranch}...HEAD`, { encoding: 'utf8' });
+      core.info(
+        `🔤 Language filter: ${this.language} (${CONFIG.LANGUAGE_CONFIGS[this.language]?.name || 'Unknown'})`
+      );
+
+      const rawOutput = execSync(`git diff --name-only origin/${this.baseBranch}...HEAD`, {
+        encoding: 'utf8'
+      });
       const allFiles = rawOutput
         .split('\n')
         .filter(Boolean) // Remove empty lines
         .filter(file => {
           // Check if file matches any of the specified paths
           const matchesPath = this.pathToFiles.some(path => file.startsWith(path));
-          
+
           // Check if file should be ignored using ignore patterns from input or default
           const shouldIgnore = this.ignorePatterns.some(pattern => file.endsWith(pattern));
-          
+
           // Check if file matches the specified language
           const matchesLanguage = this.matchesLanguage(file);
-          
+
           return matchesPath && !shouldIgnore && matchesLanguage;
         });
-      
+
       core.info(`Found ${allFiles.length} changed files matching language: ${this.language}`);
-      
+
       return allFiles;
     } catch (error) {
       core.error(`❌ Error getting changed files: ${error.message}`);
@@ -59,7 +63,7 @@ class FileService {
       core.warning(`⚠️  Unknown language: ${this.language}, defaulting to all files`);
       return true; // Default to include all files if language not recognized
     }
-    
+
     return languageConfig.extensions.some(ext => filePath.endsWith(ext));
   }
 
@@ -82,27 +86,29 @@ class FileService {
    */
   splitDiffIntoChunks(diff, maxChunkSize = null) {
     const chunkSize = maxChunkSize || this.chunkSize;
-    
+
     if (!diff || diff.length === 0) {
       return [];
     }
 
     // Ensure chunk size is reasonable
     if (chunkSize <= 0) {
-      core.warning(`⚠️  Invalid chunk size: ${chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`);
+      core.warning(
+        `⚠️  Invalid chunk size: ${chunkSize}, using default: ${CONFIG.DEFAULT_CHUNK_SIZE}`
+      );
       return [diff]; // Return as single chunk if chunk size is invalid
     }
 
     const chunks = [];
     let currentChunk = '';
     let currentSize = 0;
-    
+
     // Split by file boundaries (--- File: ... ---)
     const fileSections = diff.split(/(?=--- File: )/);
-    
+
     for (const section of fileSections) {
       const sectionSize = Buffer.byteLength(section, 'utf8');
-      
+
       // If adding this section would exceed chunk size, start a new chunk
       if (currentSize + sectionSize > chunkSize && currentChunk.length > 0) {
         chunks.push(currentChunk);
@@ -113,19 +119,23 @@ class FileService {
         currentSize += sectionSize;
       }
     }
-    
+
     // Add the last chunk if it has content
     if (currentChunk.length > 0) {
       chunks.push(currentChunk);
     }
-    
-    core.info(`📦 Split diff into ${chunks.length} chunks (max ${Math.round(chunkSize / 1024)}KB each)`);
-    
+
+    core.info(
+      `📦 Split diff into ${chunks.length} chunks (max ${Math.round(chunkSize / 1024)}KB each)`
+    );
+
     // Warn if too many chunks are created
     if (chunks.length > 50) {
-      core.warning(`⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`);
+      core.warning(
+        `⚠️  Large number of chunks (${chunks.length}) created. Consider increasing chunk size.`
+      );
     }
-    
+
     return chunks;
   }
 
@@ -141,30 +151,32 @@ class FileService {
       }
 
       core.info(`📊 Processing ${changedFiles.length} files for diff generation...`);
-      
-      let allDiffs = [];
-      
+
+      const allDiffs = [];
+
       // Process files one by one to avoid command line length issues
       for (let i = 0; i < changedFiles.length; i++) {
         const filePath = changedFiles[i];
         core.info(`📄 Processing diff for: ${filePath} (${i + 1}/${changedFiles.length})`);
-        
+
         const fileDiff = this.getFileDiff(filePath);
-        
+
         if (fileDiff) {
           const diffWithHeader = `\n--- File: ${filePath} ---\n${fileDiff}\n`;
           allDiffs.push(diffWithHeader);
         }
       }
-      
+
       const finalDiff = allDiffs.join('\n');
-      core.info(`✅ Generated diff of ${allDiffs.length} files, total size: ${Math.round(Buffer.byteLength(finalDiff, 'utf8') / 1024)}KB`);
-      
+      core.info(
+        `✅ Generated diff of ${allDiffs.length} files, total size: ${Math.round(Buffer.byteLength(finalDiff, 'utf8') / 1024)}KB`
+      );
+
       if (allDiffs.length === 0) {
         core.warning('⚠️  No valid diffs could be generated for any files');
         return '';
       }
-      
+
       return finalDiff;
     } catch (error) {
       core.error(`❌ Error getting diff: ${error.message}`);

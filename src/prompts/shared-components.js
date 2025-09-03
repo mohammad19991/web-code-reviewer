@@ -111,7 +111,7 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
 </SUMMARY>`,
 
   // Common context
-  context: `Context: Here are the code changes (diff or full files):`
+  context: 'Context: Here are the code changes (diff or full files):'
 };
 
 module.exports = SHARED_PROMPT_COMPONENTS;

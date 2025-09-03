@@ -8,11 +8,11 @@ const CORE_CONFIG = {
   DEFAULT_PROVIDER: 'claude',
   DEFAULT_PATH_TO_FILES: 'packages/',
   DEFAULT_LANGUAGE: 'js',
-  
+
   // LLM settings
   MAX_TOKENS: 3000,
   TEMPERATURE: 0, // Optimal for consistent analytical responses
-  
+
   // File filtering
   IGNORE_PATTERNS: ['.json', '.md', '.lock', '.test.js', '.spec.js']
 };

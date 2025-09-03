@@ -30,7 +30,6 @@ const QA_SPECIFIC_CHECKS = {
 `
 };
 
-
 /**
  * Language-specific code review checks
  */
@@ -62,10 +61,9 @@ const LANGUAGE_SPECIFIC_CHECKS = {
 - Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
 - Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
 
-qa_web: QA_SPECIFIC_CHECKS.qa,
-qa_android: QA_SPECIFIC_CHECKS.qa,
-qa_backend: QA_SPECIFIC_CHECKS.qa,
-
+  qa_web: QA_SPECIFIC_CHECKS.qa,
+  qa_android: QA_SPECIFIC_CHECKS.qa,
+  qa_backend: QA_SPECIFIC_CHECKS.qa
 };
 
 module.exports = LANGUAGE_SPECIFIC_CHECKS;

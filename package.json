@@ -2,17 +2,22 @@
   "name": "web-code-reviewer",
   "version": "1.14.4",
   "description": "Automated code review using LLM (Claude/OpenAI) for GitHub PRs",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "ncc build src/index.js -o dist",
-    "prepare": "npm run build",
-    "test": "node test/run-tests.js",
-    "test:single": "node test/run-tests.js single-path",
-    "test:multi": "node test/run-tests.js multi-path",
-    "test:openai": "node test/run-tests.js openai",
-    "test:custom": "node test/run-tests.js custom",
-    "test:setup": "node test/setup-env.js",
-    "test:debug": "node test/debug-env.js"
+    "prepare": "husky",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest test/prompts.test.js test/services.test.js",
+    "test:prompts": "jest test/prompts.test.js",
+    "test:services": "jest test/services.test.js",
+    "lint": "eslint src/**/*.js test/**/*.js",
+    "lint:fix": "eslint src/**/*.js test/**/*.js --fix",
+    "format": "prettier --write src/**/*.js test/**/*.js",
+    "format:check": "prettier --check src/**/*.js test/**/*.js",
+    "lint-staged": "lint-staged"
   },
   "keywords": [
     "github-action",
@@ -30,8 +35,16 @@
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
     "@vercel/ncc": "^0.38.0",
-    "dotenv": "^17.2.1"
+    "dotenv": "^17.2.1",
+    "eslint": "^9.34.0",
+    "husky": "^9.1.7",
+    "jest": "^30.1.3",
+    "lint-staged": "^16.1.6",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
   },
   "engines": {
     "node": ">=18.0.0"

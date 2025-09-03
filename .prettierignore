@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+dist/
+coverage/
+
+# Build outputs
+*.min.js
+*.bundle.js
+
+# Generated files
+package-lock.json
+yarn.lock
+
+# GitHub Actions
+.github/
+
+# Test files (optional - you can remove this if you want to format tests)
+test/
+
+# Documentation
+*.md

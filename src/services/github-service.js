@@ -17,21 +17,23 @@ class GitHubService {
   async addPostCodeReviewLabel() {
     try {
       const labelName = CONFIG.POST_REVIEW_LABEL;
-      
+
       // Check if the label already exists on the PR
       const { data: labels } = await this.octokit.rest.issues.listLabelsOnIssue({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
         issue_number: this.context.issue.number
       });
-      
-      const labelExists = labels.some(label => label.name.toLowerCase() === labelName.toLowerCase());
-      
+
+      const labelExists = labels.some(
+        label => label.name.toLowerCase() === labelName.toLowerCase()
+      );
+
       if (labelExists) {
         core.info(`🏷️  Label "${labelName}" already exists on PR`);
         return;
       }
-      
+
       // Try to add the label to the PR
       await this.octokit.rest.issues.addLabels({
         owner: this.context.repo.owner,
@@ -39,7 +41,7 @@ class GitHubService {
         issue_number: this.context.issue.number,
         labels: [labelName]
       });
-      
+
       core.info(`🏷️  Successfully added "${labelName}" label to PR`);
     } catch (error) {
       // If the label doesn't exist in the repository, try to create it first
@@ -47,10 +49,12 @@ class GitHubService {
         try {
           await this.createPostCodeReviewLabel();
         } catch (createError) {
-          core.warning(`⚠️  Could not create "${labelName}" label: ${createError.message}`);
+          core.warning(
+            `⚠️  Could not create "${CONFIG.POST_REVIEW_LABEL}" label: ${createError.message}`
+          );
         }
       } else {
-        core.warning(`⚠️  Error adding "${labelName}" label: ${error.message}`);
+        core.warning(`⚠️  Error adding "${CONFIG.POST_REVIEW_LABEL}" label: ${error.message}`);
       }
     }
   }
@@ -61,7 +65,7 @@ class GitHubService {
   async createPostCodeReviewLabel() {
     try {
       const labelName = CONFIG.POST_REVIEW_LABEL;
-      
+
       await this.octokit.rest.issues.createLabel({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
@@ -69,9 +73,9 @@ class GitHubService {
         color: CONFIG.POST_REVIEW_LABEL_COLOR,
         description: CONFIG.POST_REVIEW_LABEL_DESCRIPTION
       });
-      
+
       core.info(`🏷️  Created "${labelName}" label in repository`);
-      
+
       // Now try to add it to the PR
       await this.octokit.rest.issues.addLabels({
         owner: this.context.repo.owner,
@@ -79,10 +83,10 @@ class GitHubService {
         issue_number: this.context.issue.number,
         labels: [labelName]
       });
-      
-      core.info(`🏷️  Successfully added "${labelName}" label to PR`);
+
+      core.info(`🏷️  Successfully added "${CONFIG.POST_REVIEW_LABEL}" label to PR`);
     } catch (error) {
-      core.warning(`⚠️  Error creating "${labelName}" label: ${error.message}`);
+      core.warning(`⚠️  Error creating "${CONFIG.POST_REVIEW_LABEL}" label: ${error.message}`);
     }
   }
 
@@ -100,8 +104,8 @@ class GitHubService {
       });
 
       // Find and delete comments made by our bot
-      const botComments = comments.filter(comment => 
-        comment.body.includes('## 🤖 DeepReview') // Match our bot's header
+      const botComments = comments.filter(
+        comment => comment.body.includes('## 🤖 DeepReview') // Match our bot's header
       );
 
       for (const comment of botComments) {
@@ -142,9 +146,9 @@ class GitHubService {
         issue_number: this.context.issue.number,
         body: comment
       });
-      
+
       core.info('✅ Added new PR comment successfully');
-      
+
       // Add "post code review" label to the PR
       core.info('🏷️  Adding "post code review" label to PR...');
       await this.addPostCodeReviewLabel();
@@ -163,13 +167,13 @@ class GitHubService {
       core.info(`📋 Using PR base branch: ${prBaseBranch}`);
       return prBaseBranch;
     }
-    
+
     // Fallback to input or default
     if (inputBaseBranch) {
       core.info(`📋 Using input base branch: ${inputBaseBranch}`);
       return inputBaseBranch;
     }
-    
+
     core.info(`📋 Using default base branch: ${defaultBaseBranch}`);
     return defaultBaseBranch;
   }
