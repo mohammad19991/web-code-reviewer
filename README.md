@@ -544,16 +544,6 @@ const LANGUAGE_SPECIFIC_CHECKS = {
 Edit `src/constants.js` to ensure your new language is exported:
 
 ```javascript
-// Import your new language prompt
-const { LANGUAGE_PROMPTS, getReviewPrompt } = require('./prompts/builder');
-
-// The language will be automatically included in the exports
-// No additional changes needed if you followed the naming conventions
-```
-
-**Important**: You must also add your language to the `LANGUAGE_PROMPTS` object in `src/prompts/builder.js`:
-
-```javascript
 const LANGUAGE_PROMPTS = {
   // ... existing languages ...
   rust: buildLanguagePrompt('rust')  // Add this line
