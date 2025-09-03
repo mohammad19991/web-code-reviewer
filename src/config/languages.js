@@ -49,6 +49,24 @@ const LANGUAGE_ROLE_CONFIGS = {
     language: 'PHP',
     testExample: ' (e.g., Pest/PHPUnit feature test)',
     fileExample: 'app/Http/Controllers/UserController.php'
+  },
+  qa_web: {
+    role: 'Web QA - Automation Engineer',
+    language: 'JavaScript',
+    testExample: '(automation framework & tools: cypress )',
+    fileExample: 'cypress/e2e/desktop/features/martech/home/activatesHomePage.spec.js'
+  },
+  qa_android: {
+    role: 'Android QA - Automation Engineer',
+    language: 'Java',
+    testExample: '(automation framework & tools: appium, junit)',
+    fileExample: 'src/test/java/com/travel/tests/flights/searchResults/FlightPriceCalendarRGTest.java'
+  },
+  qa_backend: {
+    role: 'Backend QA - Automation Engineer',
+    language: 'Java',
+    testExample: '(automation framework & tools: RestAssured, junit)',
+    fileExample: 'src/main/java/com/example/user/UserService.java'
   }
 };
 

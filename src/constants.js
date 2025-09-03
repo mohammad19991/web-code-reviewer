@@ -14,7 +14,7 @@ const LLM_PROVIDERS = require('./config/llm-providers');
 
 // Import prompt modules
 const SHARED_PROMPT_COMPONENTS = require('./prompts/shared-components');
-const LANGUAGE_CRITICAL_OVERRIDES = require('./prompts/security-overrides');
+const LANGUAGE_CRITICAL_OVERRIDES = require('./prompts/critical-overrides');
 const LANGUAGE_SPECIFIC_CHECKS = require('./prompts/language-checks');
 const { LANGUAGE_PROMPTS, getReviewPrompt } = require('./prompts/builder');
 

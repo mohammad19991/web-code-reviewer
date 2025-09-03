@@ -30022,6 +30022,24 @@ const LANGUAGE_ROLE_CONFIGS = {
     language: 'PHP',
     testExample: ' (e.g., Pest/PHPUnit feature test)',
     fileExample: 'app/Http/Controllers/UserController.php'
+  },
+  qa_web: {
+    role: 'Web QA - Automation Engineer',
+    language: 'JavaScript',
+    testExample: '(automation framework & tools: cypress )',
+    fileExample: 'cypress/e2e/desktop/features/martech/home/activatesHomePage.spec.js'
+  },
+  qa_android: {
+    role: 'Android QA - Automation Engineer',
+    language: 'Java',
+    testExample: '(automation framework & tools: appium, junit)',
+    fileExample: 'src/test/java/com/travel/tests/flights/searchResults/FlightPriceCalendarRGTest.java'
+  },
+  qa_backend: {
+    role: 'Backend QA - Automation Engineer',
+    language: 'Java',
+    testExample: '(automation framework & tools: RestAssured, junit)',
+    fileExample: 'src/main/java/com/example/user/UserService.java'
   }
 };
 
@@ -30179,7 +30197,7 @@ const LLM_PROVIDERS = __nccwpck_require__(5872);
 
 // Import prompt modules
 const SHARED_PROMPT_COMPONENTS = __nccwpck_require__(9205);
-const LANGUAGE_CRITICAL_OVERRIDES = __nccwpck_require__(271);
+const LANGUAGE_CRITICAL_OVERRIDES = __nccwpck_require__(1868);
 const LANGUAGE_SPECIFIC_CHECKS = __nccwpck_require__(7249);
 const { LANGUAGE_PROMPTS, getReviewPrompt } = __nccwpck_require__(5270);
 
@@ -30290,7 +30308,10 @@ const LANGUAGE_PROMPTS = {
   js: buildLanguagePrompt('js'),
   python: buildLanguagePrompt('python'),
   java: buildLanguagePrompt('java'),
-  php: buildLanguagePrompt('php')
+  php: buildLanguagePrompt('php'),
+  qa_web: buildLanguagePrompt('qa_web'),
+  qa_android: buildLanguagePrompt('qa_android'),
+  qa_backend: buildLanguagePrompt('qa_backend')
 };
 
 /**
@@ -30306,11 +30327,23 @@ module.exports = {
   buildLanguagePrompt
 };
 
-
 /***/ }),
 
 /***/ 1868:
 /***/ ((module) => {
+
+/**
+ * QA Automation critical overrides
+ */
+const QA_CRITICAL_OVERRIDES = {
+  qa: `Auto-critical overrides (regardless of score)
+- Non-deterministic selectors that can cause flakiness in web tests (avoid brittle CSS/XPath; prefer data-test-id or accessibility queries).
+- Unbounded retries or long sleeps (cy.wait) that can significantly increase execution time or make tests flaky.
+- Tests that disable core security controls in the browser (e.g., SSL/TLS validation, insecure flags).
+- Sensitive artifacts (logs, screenshots, videos) exposing PII or secrets published outside QA infra.
+- Skipped or force-passed tests (it.skip, it.only) committed into main branches.
+  `
+};
 
 /**
  * Language-specific auto-critical overrides for security issues
@@ -30374,7 +30407,12 @@ const LANGUAGE_CRITICAL_OVERRIDES = {
 - Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
 - Path traversal in file operations without sanitization.
 - API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`
+`,
+
+qa_web: QA_CRITICAL_OVERRIDES.qa,
+qa_android: QA_CRITICAL_OVERRIDES.qa,
+qa_backend: QA_CRITICAL_OVERRIDES.qa,
+
 };
 
 module.exports = LANGUAGE_CRITICAL_OVERRIDES;
@@ -30384,6 +30422,39 @@ module.exports = LANGUAGE_CRITICAL_OVERRIDES;
 
 /***/ 7249:
 /***/ ((module) => {
+
+/**
+ * QA Automation specific checks
+ */
+const QA_SPECIFIC_CHECKS = {
+  qa: `QA Automation best practices (only if visible in diff)
+- Flakiness:
+  • Prefer data-test-id or accessibility identifiers over absolute XPath/CSS selectors.
+  • Avoid brittle locators (auto-generated IDs, deeply nested selectors).
+  • Use explicit waits/conditions (cy.intercept + wait) instead of hard sleeps (cy.wait).
+- Test design:
+  • Keep tests atomic and independent (no shared global state between tests).
+  • Follow AAA (Arrange–Act–Assert) structure for clarity.
+  • Use page objects/helpers to avoid duplication and centralize locator logic.
+  • Avoid long monolithic test methods (>200 LOC); split into reusable steps.
+- Maintainability:
+  • Consistent naming for test data and accounts (qa_user, sandbox_key).
+  • Centralize environment/config handling; avoid hardcoding URLs or envs in multiple places.
+  • Cleanup created data (test accounts, browser storage, cookies) at teardown.
+  • Use fixtures/factories for repeatable test data instead of inline hardcoded blobs.
+- Performance:
+  • Minimize heavy setup/teardown in every test (favor suite-level setup with isolation).
+  • Parallelize tests safely (ensure isolation of sessions/data).
+  • Avoid loading large datasets directly into test memory (stream/generate as needed).
+- Reporting & observability:
+  • Ensure failures produce actionable logs, screenshots, or videos.
+  • Redact secrets/tokens from test output and reports.
+  • Tag/annotate tests by category (smoke, regression, e2e) for selective runs.
+- Framework specifics:
+  • Cypress/Web: prefer cy.intercept() over stubbing XHR manually; use cypress-testing-library for user-centric queries.
+`
+};
+
 
 /**
  * Language-specific code review checks
@@ -30414,83 +30485,15 @@ const LANGUAGE_SPECIFIC_CHECKS = {
 - Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
 - Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
 - Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
-- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`
+- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
+
+qa_web: QA_SPECIFIC_CHECKS.qa,
+qa_android: QA_SPECIFIC_CHECKS.qa,
+qa_backend: QA_SPECIFIC_CHECKS.qa,
+
 };
 
 module.exports = LANGUAGE_SPECIFIC_CHECKS;
-
-
-/***/ }),
-
-/***/ 271:
-/***/ ((module) => {
-
-/**
- * Language-specific auto-critical overrides for security issues
- */
-
-const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-critical overrides (regardless of score)
-- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
-- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
-- window.postMessage with "*" targetOrigin or without strict origin checks.
-- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
-- Dynamic code execution with untrusted input (eval, new Function, VM).
-- Secrets/credentials/API tokens embedded in client code or shipped to browser.
-- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
-- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
-- URL.createObjectURL used with untrusted blobs without revocation/validation.
-- Missing CSRF protection on same-origin state-changing fetch/XHR.
-- XSS via unescaped user input rendered into the DOM/HTML.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_key, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`,
-
-  python: `Auto-critical overrides (regardless of score)
-- eval/exec on user input.
-- pickle.load or yaml.load (unsafe Loader) on untrusted data.
-- subprocess/os.system with shell=True and untrusted input (command injection).
-- SQL composed with f-strings/%/.format (no parameterization).
-- requests/urllib with SSL verification disabled (verify=False).
-- DEBUG=True or template autoescape disabled in production.
-- Jinja2/Django template injection via unescaped user input.
-- CSRF disabled/missing for state-changing endpoints (web apps).
-- Path traversal in file I/O without canonicalization/validation.
-- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
-
-  java: `Auto-critical overrides (regardless of score)
-- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
-- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
-- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
-- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
-- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
-- Path traversal in file I/O without canonicalization/checks.
-- Command injection via shell calls / native processes from user input.
-- XSS/HTML injection in server-side rendered responses due to missing escaping.
-- CSRF disabled for state-changing endpoints without compensating controls.
-- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
-- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`,
-
-  php: `Auto-critical overrides (regardless of score)
-- eval/assert/create_function on user input.
-- File inclusion from user-controlled input (include/require with tainted path).
-- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
-- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
-- Passwords hashed with md5/sha1 (use password_hash/password_verify).
-- Exposing phpinfo or debug toolbars in production.
-- Command injection via shell_exec/system/passthru with untrusted input.
-- XSS via unescaped user input in templates (echo/print) or legacy engines.
-- CSRF middleware disabled or missing on state-changing routes.
-- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
-- Path traversal in file operations without sanitization.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-`
-};
-
-module.exports = LANGUAGE_CRITICAL_OVERRIDES;
 
 
 /***/ }),
