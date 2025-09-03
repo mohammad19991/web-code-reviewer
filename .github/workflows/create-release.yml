@@ -25,6 +25,27 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the project
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed: dist directory not found"
+            exit 1
+          fi
+          echo "✅ Build successful: dist directory created"
+          ls -la dist/
+
       - name: Get package.json version
         id: get-version
         run: |
@@ -116,6 +137,7 @@ jobs:
         if: steps.check-tag.outputs.exists == 'false'
         run: |
           echo "🎉 Release ${{ steps.get-version.outputs.version }} created successfully!"
+          echo "🔨 Build completed and verified successfully"
           echo "📝 Release notes have been generated from commits"
           echo "🏷️ Tag has been created and pushed"
           echo "📦 Package.json version has been updated and pushed to master"
