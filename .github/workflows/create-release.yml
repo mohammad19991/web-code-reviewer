@@ -8,11 +8,6 @@ on:
       - 'src/**'
       - 'package.json'
       - 'package-lock.json'
-    paths-ignore:
-      - '**.md'
-      - '.github/workflows/**'
-      - 'test/**'
-      - 'docs/**'
 
 jobs:
   create-release:
