@@ -13,7 +13,7 @@ const ReviewService = require('./services/review-service');
 const LoggingService = require('./services/logging-service');
 
 /**
- * GitHub Actions Deep Reviewer - Main orchestrator
+ * Deep Reviewer - Main orchestrator
  * Now uses modular services for better maintainability
  */
 class GitHubActionsReviewer {
