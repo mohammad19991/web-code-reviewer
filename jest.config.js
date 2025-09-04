@@ -1,6 +1,11 @@
-export default {
+module.exports = {
   // Test environment
   testEnvironment: 'node',
+  
+  // Specify Node.js version for compatibility
+  testEnvironmentOptions: {
+    node: '18'
+  },
   
   // Test file patterns
   testMatch: [
