@@ -46,13 +46,13 @@ module.exports = [
       'no-trailing-spaces': 'off',
       
       // Keep non-formatting rules
-      'no-unused-vars': 'warn',
+      'no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
       'no-console': 'warn',
       'no-var': 'error',
       'prefer-const': 'warn',
       
       // TypeScript specific rules
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',

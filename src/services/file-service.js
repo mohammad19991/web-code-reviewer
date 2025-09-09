@@ -73,7 +73,8 @@ class FileService {
   getFileDiff(filePath) {
     try {
       // Enhanced diff with more context lines and file structure
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      // Increased unified context from 10 to 25 lines for better understanding
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=25 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
 
       // Add file structure context
@@ -94,13 +95,13 @@ class FileService {
       // Get file structure without full content (try multiple approaches)
       let structure = '';
       try {
-        // First try git show
-        const structureCommand = `git show HEAD:${filePath} 2>/dev/null | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
+        // First try git show - get more comprehensive structure
+        const structureCommand = `git show HEAD:${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
         structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
       } catch {
         // If git show fails, try reading file directly
         try {
-          const directCommand = `cat ${filePath} 2>/dev/null | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
+          const directCommand = `cat ${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
           structure = execSync(directCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
         } catch {
           // If both fail, return basic file header
