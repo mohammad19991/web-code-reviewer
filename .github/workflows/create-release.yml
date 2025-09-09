@@ -73,6 +73,15 @@ jobs:
             echo "✅ Tag ${{ steps.get-version.outputs.version }} does not exist"
           fi
 
+      - name: Clean working directory
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          echo "🧹 Cleaning working directory before version update..."
+          git status
+          git clean -fd
+          git reset --hard HEAD
+          echo "✅ Working directory cleaned"
+
       - name: Generate release notes
         if: steps.check-tag.outputs.exists == 'false'
         id: generate-notes
@@ -112,15 +121,15 @@ jobs:
           NEW_VERSION=${{ steps.get-version.outputs.version }}
           NEW_VERSION=${NEW_VERSION#v}
           
+          # Pull latest changes first to avoid conflicts
+          git pull origin master --rebase
+          
           # Update package.json version
           npm version $NEW_VERSION --no-git-tag-version
           
-          # Stage and commit version changes first
+          # Stage and commit version changes
           git add package.json package-lock.json
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-          
-          # Pull latest changes to avoid conflicts
-          git pull origin master --rebase
           
           # Push the version update
           git push origin master
