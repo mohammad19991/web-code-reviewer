@@ -30950,11 +30950,18 @@ class ContextService {
       core.warning(
         `⚠️  Context size (${filteredSize}KB) exceeds dynamic limit (${Math.round(dynamicLimit / 1024)}KB), truncating...`
       );
-      return (
+      const truncatedContext =
         filteredContext.substring(0, dynamicLimit) +
-        '\n\n--- [Context truncated due to size limits] ---'
-      );
+        '\n\n--- [Context truncated due to size limits] ---';
+
+      core.info(`📋 Final context (truncated): ${Math.round(truncatedContext.length / 1024)}KB`);
+      core.debug(`📋 Final context content:\n${truncatedContext}`);
+
+      return truncatedContext;
     }
+
+    core.info(`📋 Final context: ${filteredSize}KB`);
+    core.debug(`📋 Final context content:\n${filteredContext}`);
 
     return filteredContext;
   }
