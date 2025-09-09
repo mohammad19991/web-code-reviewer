@@ -31461,7 +31461,7 @@ class FileService {
     try {
       // Enhanced diff with more context lines and file structure
       // Using unified=10 for optimal balance between context and performance
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=25 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
 
       // Add file structure context
