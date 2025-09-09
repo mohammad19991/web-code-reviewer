@@ -30955,13 +30955,13 @@ class ContextService {
         '\n\n--- [Context truncated due to size limits] ---';
 
       core.info(`📋 Final context (truncated): ${Math.round(truncatedContext.length / 1024)}KB`);
-      core.debug(`📋 Final context content:\n${truncatedContext}`);
+      core.info(`📋 Final context content:\n${truncatedContext}`);
 
       return truncatedContext;
     }
 
     core.info(`📋 Final context: ${filteredSize}KB`);
-    core.debug(`📋 Final context content:\n${filteredContext}`);
+    core.info(`📋 Final context content:\n${filteredContext}`);
 
     return filteredContext;
   }
