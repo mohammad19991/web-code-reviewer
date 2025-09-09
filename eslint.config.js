@@ -2,9 +2,12 @@ const js = require('@eslint/js');
 const tseslint = require('@typescript-eslint/eslint-plugin');
 const tsparser = require('@typescript-eslint/parser');
 const globals = require('globals');
+const prettier = require('eslint-plugin-prettier');
+const prettierConfig = require('eslint-config-prettier');
 
 module.exports = [
   js.configs.recommended,
+  prettierConfig,
   {
     files: ['src/**/*.js', 'test/**/*.js'],
     languageOptions: {
@@ -21,26 +24,32 @@ module.exports = [
       }
     },
     plugins: {
-      '@typescript-eslint': tseslint
+      '@typescript-eslint': tseslint,
+      prettier: prettier
     },
     rules: {
-      // Standard rules
-      'indent': ['error', 2],
-      'quotes': ['error', 'single'],
-      'semi': ['error', 'always'],
-      'comma-dangle': ['error', 'never'],
+      // Prettier integration
+      'prettier/prettier': 'error',
+      
+      // Disable conflicting rules (handled by Prettier)
+      'indent': 'off',
+      'quotes': 'off',
+      'semi': 'off',
+      'comma-dangle': 'off',
+      'object-curly-spacing': 'off',
+      'array-bracket-spacing': 'off',
+      'space-before-function-paren': 'off',
+      'space-before-blocks': 'off',
+      'keyword-spacing': 'off',
+      'space-infix-ops': 'off',
+      'eol-last': 'off',
+      'no-trailing-spaces': 'off',
+      
+      // Keep non-formatting rules
       'no-unused-vars': 'warn',
       'no-console': 'warn',
       'no-var': 'error',
       'prefer-const': 'warn',
-      'object-curly-spacing': ['error', 'always'],
-      'array-bracket-spacing': ['error', 'never'],
-      'space-before-function-paren': ['error', 'never'],
-      'space-before-blocks': 'error',
-      'keyword-spacing': 'error',
-      'space-infix-ops': 'error',
-      'eol-last': 'error',
-      'no-trailing-spaces': 'error',
       
       // TypeScript specific rules
       '@typescript-eslint/no-unused-vars': 'warn',
