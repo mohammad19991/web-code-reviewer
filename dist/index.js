@@ -31064,7 +31064,11 @@ class ContextService {
    */
   getContextAwareChunkPrompt(basePrompt, chunkIndex, totalChunks, context) {
     if (totalChunks === 1) {
-      return `${basePrompt}\n\n${context}`;
+      const singleChunkPrompt = `${basePrompt}\n\n${context}`;
+      core.info(
+        `📝 Generated single-chunk prompt: ${Math.round(singleChunkPrompt.length / 1024)}KB`
+      );
+      return singleChunkPrompt;
     }
 
     // For later chunks, summarize context to save tokens
@@ -31073,7 +31077,18 @@ class ContextService {
         ? this.summarizeContext(context, CONTEXT_CONFIG.MAX_CONTEXT_SIZE / 2)
         : context;
 
-    return `${basePrompt}
+    const contextSize = Math.round(processedContext.length / 1024);
+    const originalContextSize = Math.round(context.length / 1024);
+
+    if (chunkIndex > 0 && processedContext.length < context.length) {
+      core.info(
+        `📝 Chunk ${chunkIndex + 1}/${totalChunks}: Context summarized ${originalContextSize}KB → ${contextSize}KB`
+      );
+    } else {
+      core.info(`📝 Chunk ${chunkIndex + 1}/${totalChunks}: Using full context (${contextSize}KB)`);
+    }
+
+    const chunkPrompt = `${basePrompt}
 
 **CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
 **PROJECT CONTEXT:** ${processedContext}
@@ -31087,6 +31102,13 @@ class ContextService {
 - Consider how this chunk relates to the overall changes and project structure
 
 **CODE CHANGES TO REVIEW:**`;
+
+    const totalPromptSize = Math.round(chunkPrompt.length / 1024);
+    core.info(
+      `📝 Generated context-aware prompt for chunk ${chunkIndex + 1}: ${totalPromptSize}KB total`
+    );
+
+    return chunkPrompt;
   }
 }
 
