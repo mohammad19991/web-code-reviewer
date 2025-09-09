@@ -238,6 +238,13 @@ This chunk was too large to process completely. Here's a summary of what was det
           sharedContext
         );
 
+        // Log the full prompt being sent to LLM
+        core.info(`📝 PROMPT BEING SENT TO LLM (Chunk ${chunkIndex + 1}/${totalChunks}):`);
+        core.info('='.repeat(80));
+        core.info(chunkPrompt);
+        core.info('='.repeat(80));
+        core.info(`📊 Prompt size: ${chunkPrompt.length} characters`);
+
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
         );

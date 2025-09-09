@@ -31460,7 +31460,7 @@ class FileService {
   getFileDiff(filePath) {
     try {
       // Enhanced diff with more context lines and file structure
-      // Increased unified context from 10 to 25 lines for better understanding
+      // Using unified=10 for optimal balance between context and performance
       const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=25 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
 
@@ -32213,6 +32213,13 @@ This chunk was too large to process completely. Here's a summary of what was det
           sharedContext
         );
 
+        // Log the full prompt being sent to LLM
+        core.info(`📝 PROMPT BEING SENT TO LLM (Chunk ${chunkIndex + 1}/${totalChunks}):`);
+        core.info('='.repeat(80));
+        core.info(chunkPrompt);
+        core.info('='.repeat(80));
+        core.info(`📊 Prompt size: ${chunkPrompt.length} characters`);
+
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
         );
@@ -32456,6 +32463,7 @@ module.exports = LLMService;
  */
 
 const core = __nccwpck_require__(7484);
+const ResponseParserService = __nccwpck_require__(4085);
 const { CONFIG } = __nccwpck_require__(9992);
 
 class LoggingService {
@@ -32589,10 +32597,18 @@ class LoggingService {
   logFinalDecision(shouldBlockMerge, llmResponse) {
     try {
       // Use centralized function to extract issues and metadata
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
       if (extractedData.chunksProcessed > 0) {
-        core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
+        // Log processing statistics
+        const stats = extractedData.processingStats;
+        if (stats.failedChunks > 0) {
+          core.warning(
+            `📊 Chunk processing: ${stats.successfulChunks}/${stats.totalChunks} successful (${stats.successRate.toFixed(1)}% success rate)`
+          );
+        } else {
+          core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
+        }
 
         if (shouldBlockMerge) {
           const criticalIssues = extractedData.issues.filter(
@@ -32664,16 +32680,37 @@ class LoggingService {
       core.info('✅ MERGE APPROVED: No critical issues found. Safe to merge.');
     }
   }
+}
 
+module.exports = LoggingService;
+
+
+/***/ }),
+
+/***/ 4085:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Centralized Response Parser Service
+ * Handles all LLM response parsing to eliminate code duplication
+ * Enhanced with chunk processing consistency, deduplication, and failure handling
+ */
+
+const core = __nccwpck_require__(7484);
+
+class ResponseParserService {
   /**
-   * Extract issues and metadata from LLM response (helper method)
+   * Extract issues and metadata from LLM response with enhanced chunk processing
+   * This is the single source of truth for parsing LLM responses
    */
-  extractIssuesFromResponse(llmResponse) {
+  static extractIssuesFromResponse(llmResponse) {
     const issues = [];
     const summaries = [];
+    const chunkResults = [];
     let totalCriticalCount = 0;
     let totalSuggestionCount = 0;
     let jsonMatches = [];
+    let failedChunks = 0;
 
     try {
       // Try to extract JSON from the new XML-style format first
@@ -32685,31 +32722,49 @@ class LoggingService {
             const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
 
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
+            // Validate chunk data structure
+            const validatedChunk = this.validateChunkData(reviewData, index + 1);
+            chunkResults.push(validatedChunk);
+
+            // Collect summary with consistent chunk indexing
+            if (validatedChunk.summary) {
+              summaries.push(`**Chunk ${index + 1}**: ${validatedChunk.summary}`);
             }
 
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
+            // Collect issues with enhanced context
+            if (validatedChunk.issues && Array.isArray(validatedChunk.issues)) {
+              validatedChunk.issues.forEach(issue => {
+                // Add comprehensive chunk context to issue
                 const issueWithContext = {
                   ...issue,
                   chunk: index + 1,
-                  originalId: issue.id
+                  originalId: issue.id,
+                  chunkIndex: index, // 0-based index for internal processing
+                  chunkTotal: jsonMatches.length,
+                  processedAt: new Date().toISOString()
                 };
                 issues.push(issueWithContext);
               });
             }
 
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
+            // Collect metrics with validation
+            if (validatedChunk.metrics) {
+              totalCriticalCount += validatedChunk.metrics.critical_count || 0;
+              totalSuggestionCount += validatedChunk.metrics.suggestion_count || 0;
             }
           } catch (parseError) {
+            failedChunks++;
             core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
+
+            // Add failed chunk info for tracking
+            chunkResults.push({
+              chunkIndex: index,
+              success: false,
+              error: parseError.message,
+              issues: [],
+              summary: null,
+              metrics: { critical_count: 0, suggestion_count: 0 }
+            });
           }
         });
       }
@@ -32717,17 +32772,127 @@ class LoggingService {
       core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
     }
 
+    // Deduplicate issues across chunks
+    const deduplicatedIssues = this.deduplicateIssues(issues);
+
+    // Calculate processing statistics
+    const successfulChunks = jsonMatches.length - failedChunks;
+    const processingStats = {
+      totalChunks: jsonMatches.length,
+      successfulChunks,
+      failedChunks,
+      successRate: jsonMatches.length > 0 ? (successfulChunks / jsonMatches.length) * 100 : 0
+    };
+
+    // Log processing statistics
+    if (failedChunks > 0) {
+      core.warning(
+        `⚠️  Chunk processing: ${successfulChunks}/${jsonMatches.length} successful (${processingStats.successRate.toFixed(1)}% success rate)`
+      );
+    } else {
+      core.info(`✅ Chunk processing: All ${jsonMatches.length} chunks processed successfully`);
+    }
+
     return {
-      issues,
+      issues: deduplicatedIssues,
       summaries,
       totalCriticalCount,
       totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
+      chunksProcessed: jsonMatches.length,
+      chunkResults,
+      processingStats
     };
+  }
+
+  /**
+   * Validate chunk data structure and ensure required fields
+   */
+  static validateChunkData(chunkData, chunkNumber) {
+    const validated = {
+      chunkIndex: chunkNumber - 1,
+      chunkNumber,
+      success: true,
+      issues: [],
+      summary: null,
+      metrics: { critical_count: 0, suggestion_count: 0 }
+    };
+
+    // Validate summary
+    if (chunkData.summary && typeof chunkData.summary === 'string') {
+      validated.summary = chunkData.summary.trim();
+    }
+
+    // Validate issues array
+    if (chunkData.issues && Array.isArray(chunkData.issues)) {
+      validated.issues = chunkData.issues.filter(issue => {
+        // Basic validation for required fields
+        return (
+          issue &&
+          typeof issue.id === 'string' &&
+          typeof issue.category === 'string' &&
+          typeof issue.severity_proposed === 'string'
+        );
+      });
+    }
+
+    // Validate metrics
+    if (chunkData.metrics && typeof chunkData.metrics === 'object') {
+      validated.metrics = {
+        critical_count: Math.max(0, parseInt(chunkData.metrics.critical_count) || 0),
+        suggestion_count: Math.max(0, parseInt(chunkData.metrics.suggestion_count) || 0)
+      };
+    }
+
+    return validated;
+  }
+
+  /**
+   * Deduplicate issues across chunks based on file, lines, and issue type
+   */
+  static deduplicateIssues(issues) {
+    const issueMap = new Map();
+    const deduplicated = [];
+
+    issues.forEach(issue => {
+      // Create a unique key based on file, lines, and issue type
+      const key = `${issue.file}:${issue.lines?.join('-')}:${issue.category}:${issue.id}`;
+
+      if (issueMap.has(key)) {
+        // Issue already exists, merge chunk information
+        const existingIssue = issueMap.get(key);
+        existingIssue.chunks = existingIssue.chunks || [existingIssue.chunk];
+        if (!existingIssue.chunks.includes(issue.chunk)) {
+          existingIssue.chunks.push(issue.chunk);
+        }
+
+        // Update confidence to highest value
+        if (issue.confidence > existingIssue.confidence) {
+          existingIssue.confidence = issue.confidence;
+        }
+
+        // Update severity score to highest value
+        if (issue.severity_score > existingIssue.severity_score) {
+          existingIssue.severity_score = issue.severity_score;
+        }
+      } else {
+        // New issue, add to map and result
+        const newIssue = {
+          ...issue,
+          chunks: [issue.chunk]
+        };
+        issueMap.set(key, newIssue);
+        deduplicated.push(newIssue);
+      }
+    });
+
+    // Sort issues by severity score (highest first)
+    deduplicated.sort((a, b) => (b.severity_score || 0) - (a.severity_score || 0));
+
+    return deduplicated;
   }
 }
 
-module.exports = LoggingService;
+module.exports = ResponseParserService;
 
 
 /***/ }),
@@ -32740,6 +32905,7 @@ module.exports = LoggingService;
  */
 
 const core = __nccwpck_require__(7484);
+const ResponseParserService = __nccwpck_require__(4085);
 const { CONFIG, getLanguageForFile } = __nccwpck_require__(9992);
 
 class ReviewService {
@@ -32903,67 +33069,6 @@ class ReviewService {
   }
 
   /**
-   * Extract issues and metadata from LLM response
-   */
-  extractIssuesFromResponse(llmResponse) {
-    const issues = [];
-    const summaries = [];
-    let totalCriticalCount = 0;
-    let totalSuggestionCount = 0;
-    let jsonMatches = [];
-
-    try {
-      // Try to extract JSON from the new XML-style format first
-      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
-
-      if (jsonMatches.length > 0) {
-        jsonMatches.forEach((match, index) => {
-          try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
-            const reviewData = JSON.parse(jsonStr);
-
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
-            }
-
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
-                const issueWithContext = {
-                  ...issue,
-                  chunk: index + 1,
-                  originalId: issue.id
-                };
-                issues.push(issueWithContext);
-              });
-            }
-
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
-            }
-          } catch (parseError) {
-            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
-          }
-        });
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
-    }
-
-    return {
-      issues,
-      summaries,
-      totalCriticalCount,
-      totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
-    };
-  }
-
-  /**
    * Generate PR comment content with enhanced JSON parsing
    */
   generatePRComment(
@@ -32983,7 +33088,7 @@ class ReviewService {
       : 'All changes are safe and well-implemented';
 
     // Extract issues and metadata using centralized function
-    const extractedData = this.extractIssuesFromResponse(llmResponse);
+    const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
     // Create review summary
     let reviewSummary = '';
@@ -33003,7 +33108,12 @@ class ReviewService {
         issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
         criticalIssues.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -33028,7 +33138,12 @@ class ReviewService {
         issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
         suggestions.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -33100,7 +33215,7 @@ ${
   ) {
     try {
       // Extract issues from LLM response
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
       // Prepare issues for logging (simplified format)
       const logIssues = extractedData.issues.map(issue => ({
