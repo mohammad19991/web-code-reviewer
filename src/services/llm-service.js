@@ -4,15 +4,17 @@
 
 const core = require('@actions/core');
 const { LLM_PROVIDERS, CONFIG } = require('../constants');
+const ContextService = require('./context-service');
 
 class LLMService {
-  constructor(provider, maxTokens, temperature) {
+  constructor(provider, maxTokens, temperature, baseBranch) {
     this.provider = provider;
     this.maxTokens = maxTokens;
     this.temperature = temperature;
     this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
     this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
     this.batchDelayMs = CONFIG.BATCH_DELAY_MS;
+    this.contextService = new ContextService(baseBranch);
   }
 
   /**
@@ -25,30 +27,24 @@ class LLMService {
   }
 
   /**
-   * Create optimized prompt for chunk processing
+   * Create optimized prompt for chunk processing with context
    */
-  createChunkPrompt(prompt, chunkIndex, totalChunks) {
+  createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles = []) {
     if (totalChunks === 1) {
-      return prompt;
+      // For single chunk, include full context
+      const context = this.contextService.getComprehensiveContext(changedFiles);
+      return `${prompt}\n\n${context}`;
     }
 
-    return `${prompt}
-
-**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
-**INSTRUCTIONS:** 
-- Review this specific portion of the code changes
-- Focus on issues that are relevant to this chunk
-- If you find critical issues, mark them clearly
-- Provide specific, actionable feedback for this code section
-- Consider how this chunk relates to the overall changes
-
-**CODE CHANGES TO REVIEW:**`;
+    // For multiple chunks, include project context
+    const context = this.contextService.getComprehensiveContext(changedFiles);
+    return this.contextService.getContextAwareChunkPrompt(prompt, chunkIndex, totalChunks, context);
   }
 
   /**
    * Process chunks with adaptive concurrency based on chunk count
    */
-  async processChunksIntelligently(prompt, chunks) {
+  async processChunksIntelligently(prompt, chunks, changedFiles = []) {
     const results = [];
 
     if (chunks.length <= 3) {
@@ -58,7 +54,7 @@ class LLMService {
       for (let i = 0; i < chunks.length; i++) {
         core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
 
-        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
+        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length, changedFiles);
         results.push(result);
 
         if (i + 1 < chunks.length) {
@@ -76,7 +72,7 @@ class LLMService {
       for (let i = 0; i < chunks.length; i += maxConcurrent) {
         const batch = chunks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map((chunk, batchIndex) =>
-          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
+          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length, changedFiles)
         );
 
         const batchResults = await Promise.all(batchPromises);
@@ -161,7 +157,7 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API for a single chunk with improved error handling and retry logic
    */
-  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
+  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks, changedFiles = []) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
 
@@ -190,7 +186,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         }
 
         // Create chunk-specific prompt with better context
-        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
+        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles);
 
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
@@ -280,7 +276,7 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API with improved chunking and intelligent processing
    */
-  async callLLM(prompt, diff) {
+  async callLLM(prompt, diff, changedFiles = []) {
     try {
       const apiKey = this.getApiKey();
       if (!apiKey) {
@@ -298,7 +294,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1);
+        return await this.callLLMChunk(prompt, diff, 0, 1, []);
       }
 
       // Split diff into chunks with intelligent sizing
@@ -312,7 +308,7 @@ This chunk was too large to process completely. Here's a summary of what was det
       core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
 
       // Process chunks with adaptive concurrency
-      const results = await this.processChunksIntelligently(prompt, chunks);
+      const results = await this.processChunksIntelligently(prompt, chunks, changedFiles);
 
       // Filter out failed responses and combine results
       const validResults = results.filter(result => result !== null);

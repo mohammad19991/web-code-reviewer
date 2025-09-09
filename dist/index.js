@@ -30190,7 +30190,7 @@ module.exports = {
  */
 
 const PROCESSING_CONFIG = {
-  DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
+  DEFAULT_CHUNK_SIZE: 500 * 1024, // 500KB default chunk size (optimized for Claude Sonnet 4)
   MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
   BATCH_DELAY_MS: 2000 // Increased delay between requests
 };
@@ -30642,6 +30642,146 @@ module.exports = SHARED_PROMPT_COMPONENTS;
 
 /***/ }),
 
+/***/ 6819:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Context Service - Provides additional context to improve LLM reliability
+ */
+
+const { execSync } = __nccwpck_require__(5317);
+const core = __nccwpck_require__(7484);
+
+class ContextService {
+  constructor(baseBranch) {
+    this.baseBranch = baseBranch;
+  }
+
+  /**
+   * Get project structure context
+   */
+  getProjectStructure() {
+    try {
+      const structureCommand = `find . -type f -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" | head -20 | xargs -I {} sh -c 'echo "=== {} ===" && head -10 "{}" | grep -E "(import|export|class|function)" | head -5'`;
+      const structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 5 * 1024 * 1024 });
+      return `--- Project Structure Context ---\n${structure}\n--- End Project Structure ---\n`;
+    } catch (error) {
+      core.warning(`⚠️  Could not get project structure: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get dependency context (package.json, imports)
+   */
+  getDependencyContext() {
+    try {
+      let context = '';
+      
+      // Get package.json dependencies
+      try {
+        const packageJson = execSync('cat package.json | jq -r ".dependencies, .devDependencies"', { encoding: 'utf8' });
+        context += `--- Dependencies Context ---\n${packageJson}\n--- End Dependencies ---\n`;
+      } catch (error) {
+        // If jq is not available, try without it
+        const packageJson = execSync('cat package.json', { encoding: 'utf8' });
+        context += `--- Package.json Context ---\n${packageJson}\n--- End Package.json ---\n`;
+      }
+
+      return context;
+    } catch (error) {
+      core.warning(`⚠️  Could not get dependency context: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get recent commit context for pattern analysis
+   */
+  getRecentCommitContext() {
+    try {
+      const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -10`;
+      const commits = execSync(commitCommand, { encoding: 'utf8' });
+      return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
+    } catch (error) {
+      core.warning(`⚠️  Could not get recent commit context: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get file relationship context (imports/exports between changed files)
+   */
+  getFileRelationshipContext(changedFiles) {
+    try {
+      let context = '--- File Relationships Context ---\n';
+      
+      for (const file of changedFiles) {
+        try {
+          // Get imports from this file
+          const importsCommand = `git show HEAD:${file} | grep -E '^import.*from' | head -10`;
+          const imports = execSync(importsCommand, { encoding: 'utf8' });
+          
+          if (imports.trim()) {
+            context += `\n${file} imports:\n${imports}\n`;
+          }
+        } catch (error) {
+          // File might not exist in HEAD, skip
+        }
+      }
+      
+      context += '\n--- End File Relationships ---\n';
+      return context;
+    } catch (error) {
+      core.warning(`⚠️  Could not get file relationship context: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get comprehensive context for LLM
+   */
+  getComprehensiveContext(changedFiles) {
+    const contexts = [
+      this.getProjectStructure(),
+      this.getDependencyContext(),
+      this.getRecentCommitContext(),
+      this.getFileRelationshipContext(changedFiles)
+    ];
+
+    return contexts.filter(context => context.trim()).join('\n');
+  }
+
+  /**
+   * Get context-aware chunk prompt
+   */
+  getContextAwareChunkPrompt(basePrompt, chunkIndex, totalChunks, context) {
+    if (totalChunks === 1) {
+      return `${basePrompt}\n\n${context}`;
+    }
+
+    return `${basePrompt}
+
+**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
+**PROJECT CONTEXT:** ${context}
+
+**INSTRUCTIONS:** 
+- Review this specific portion of the code changes
+- Consider the project context and file relationships provided above
+- Focus on issues that are relevant to this chunk
+- If you find critical issues, mark them clearly
+- Provide specific, actionable feedback for this code section
+- Consider how this chunk relates to the overall changes and project structure
+
+**CODE CHANGES TO REVIEW:**`;
+  }
+}
+
+module.exports = ContextService;
+
+
+/***/ }),
+
 /***/ 440:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -30719,12 +30859,32 @@ class FileService {
    */
   getFileDiff(filePath) {
     try {
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      // Enhanced diff with more context lines and file structure
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
-      return diff;
+      
+      // Add file structure context
+      const fileStructure = this.getFileStructureContext(filePath);
+      
+      return `${fileStructure}\n${diff}`;
     } catch (error) {
       core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
       return '';
+    }
+  }
+
+  /**
+   * Get file structure context (imports, exports, class/function definitions)
+   */
+  getFileStructureContext(filePath) {
+    try {
+      // Get file structure without full content
+      const structureCommand = `git show HEAD:${filePath} | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
+      const structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      return `--- File Structure Context for ${filePath} ---\n${structure}\n--- End Structure ---\n`;
+    } catch (error) {
+      // If structure extraction fails, continue without it
+      return `--- File: ${filePath} ---\n`;
     }
   }
 
@@ -31200,15 +31360,17 @@ module.exports = InputService;
 
 const core = __nccwpck_require__(7484);
 const { LLM_PROVIDERS, CONFIG } = __nccwpck_require__(9992);
+const ContextService = __nccwpck_require__(6819);
 
 class LLMService {
-  constructor(provider, maxTokens, temperature) {
+  constructor(provider, maxTokens, temperature, baseBranch) {
     this.provider = provider;
     this.maxTokens = maxTokens;
     this.temperature = temperature;
     this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
     this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
     this.batchDelayMs = CONFIG.BATCH_DELAY_MS;
+    this.contextService = new ContextService(baseBranch);
   }
 
   /**
@@ -31221,30 +31383,24 @@ class LLMService {
   }
 
   /**
-   * Create optimized prompt for chunk processing
+   * Create optimized prompt for chunk processing with context
    */
-  createChunkPrompt(prompt, chunkIndex, totalChunks) {
+  createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles = []) {
     if (totalChunks === 1) {
-      return prompt;
+      // For single chunk, include full context
+      const context = this.contextService.getComprehensiveContext(changedFiles);
+      return `${prompt}\n\n${context}`;
     }
 
-    return `${prompt}
-
-**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
-**INSTRUCTIONS:** 
-- Review this specific portion of the code changes
-- Focus on issues that are relevant to this chunk
-- If you find critical issues, mark them clearly
-- Provide specific, actionable feedback for this code section
-- Consider how this chunk relates to the overall changes
-
-**CODE CHANGES TO REVIEW:**`;
+    // For multiple chunks, include project context
+    const context = this.contextService.getComprehensiveContext(changedFiles);
+    return this.contextService.getContextAwareChunkPrompt(prompt, chunkIndex, totalChunks, context);
   }
 
   /**
    * Process chunks with adaptive concurrency based on chunk count
    */
-  async processChunksIntelligently(prompt, chunks) {
+  async processChunksIntelligently(prompt, chunks, changedFiles = []) {
     const results = [];
 
     if (chunks.length <= 3) {
@@ -31254,7 +31410,7 @@ class LLMService {
       for (let i = 0; i < chunks.length; i++) {
         core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
 
-        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
+        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length, changedFiles);
         results.push(result);
 
         if (i + 1 < chunks.length) {
@@ -31272,7 +31428,7 @@ class LLMService {
       for (let i = 0; i < chunks.length; i += maxConcurrent) {
         const batch = chunks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map((chunk, batchIndex) =>
-          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
+          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length, changedFiles)
         );
 
         const batchResults = await Promise.all(batchPromises);
@@ -31357,7 +31513,7 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API for a single chunk with improved error handling and retry logic
    */
-  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
+  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks, changedFiles = []) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
 
@@ -31386,7 +31542,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         }
 
         // Create chunk-specific prompt with better context
-        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
+        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles);
 
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
@@ -31476,7 +31632,7 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API with improved chunking and intelligent processing
    */
-  async callLLM(prompt, diff) {
+  async callLLM(prompt, diff, changedFiles = []) {
     try {
       const apiKey = this.getApiKey();
       if (!apiKey) {
@@ -31494,7 +31650,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1);
+        return await this.callLLMChunk(prompt, diff, 0, 1, []);
       }
 
       // Split diff into chunks with intelligent sizing
@@ -31508,7 +31664,7 @@ This chunk was too large to process completely. Here's a summary of what was det
       core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
 
       // Process chunks with adaptive concurrency
-      const results = await this.processChunksIntelligently(prompt, chunks);
+      const results = await this.processChunksIntelligently(prompt, chunks, changedFiles);
 
       // Filter out failed responses and combine results
       const validResults = results.filter(result => result !== null);
@@ -34510,7 +34666,8 @@ class GitHubActionsReviewer {
     this.llmService = new LLMService(
       this.inputs.provider,
       this.inputs.maxTokens,
-      this.inputs.temperature
+      this.inputs.temperature,
+      this.baseBranch
     );
   }
 
@@ -34547,7 +34704,7 @@ class GitHubActionsReviewer {
     core.info(`📝 Using ${this.inputs.language} review prompt`);
       
     const fullDiff = this.fileService.getFullDiff();
-    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff);
+    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff, changedFiles);
     
     if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge

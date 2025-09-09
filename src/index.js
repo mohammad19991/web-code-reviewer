@@ -54,7 +54,8 @@ class GitHubActionsReviewer {
     this.llmService = new LLMService(
       this.inputs.provider,
       this.inputs.maxTokens,
-      this.inputs.temperature
+      this.inputs.temperature,
+      this.baseBranch
     );
   }
 
@@ -91,7 +92,7 @@ class GitHubActionsReviewer {
     core.info(`📝 Using ${this.inputs.language} review prompt`);
       
     const fullDiff = this.fileService.getFullDiff();
-    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff);
+    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff, changedFiles);
     
     if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge
