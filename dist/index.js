@@ -29932,15 +29932,15 @@ function wrappy (fn, cb) {
 
 const CONTEXT_CONFIG = {
   // Context size limits (dynamic based on available tokens)
-  MAX_CONTEXT_SIZE: 50 * 1024, // 50KB max context size (fallback)
-  MAX_PROJECT_FILES: 20, // Max files to include in project structure
-  MAX_COMMIT_HISTORY: 10, // Max commits to include in recent history
-  MAX_IMPORT_LINES: 10, // Max import lines per file
+  MAX_CONTEXT_SIZE: 75 * 1024, // 75KB max context size (fallback)
+  MAX_PROJECT_FILES: 30, // Max files to include in project structure
+  MAX_COMMIT_HISTORY: 15, // Max commits to include in recent history
+  MAX_IMPORT_LINES: 15, // Max import lines per file
 
   // Dynamic context sizing based on available tokens
-  CONTEXT_TOKEN_RATIO: 0.25, // Use 25% of available tokens for context
-  MIN_CONTEXT_SIZE: 10 * 1024, // 10KB minimum context size
-  MAX_CONTEXT_SIZE_LARGE: 100 * 1024, // 100KB maximum context size
+  CONTEXT_TOKEN_RATIO: 0.3, // Use 30% of available tokens for context
+  MIN_CONTEXT_SIZE: 15 * 1024, // 15KB minimum context size
+  MAX_CONTEXT_SIZE_LARGE: 150 * 1024, // 150KB maximum context size
 
   // Context features (can be toggled)
   ENABLE_PROJECT_STRUCTURE: true,
@@ -29949,10 +29949,20 @@ const CONTEXT_CONFIG = {
   ENABLE_FILE_RELATIONSHIPS: true,
 
   // File patterns to exclude from context
-  EXCLUDE_PATTERNS: ['node_modules', 'dist', '.git', 'coverage', '.nyc_output', 'build', 'out'],
+  EXCLUDE_PATTERNS: [
+    'node_modules',
+    'dist',
+    '.git',
+    'coverage',
+    '.nyc_output',
+    'build',
+    'out',
+    '.next',
+    '.nuxt'
+  ],
 
   // File extensions to include in project structure
-  INCLUDE_EXTENSIONS: ['.js', '.ts', '.tsx', '.jsx', '.vue', '.svelte'],
+  INCLUDE_EXTENSIONS: ['.js', '.ts', '.tsx', '.jsx', '.vue', '.svelte', '.json', '.md'],
 
   // Context priority (order matters)
   CONTEXT_PRIORITY: ['dependencies', 'project_structure', 'file_relationships', 'commit_history']
@@ -30790,8 +30800,20 @@ class ContextService {
           ' -o '
         );
 
-        const structureCommand = `find . -type f \\( ${extensions} \\) ${excludePatterns} | head -${CONTEXT_CONFIG.MAX_PROJECT_FILES} | while read file; do echo "=== $file ==="; head -10 "$file" 2>/dev/null | grep -E "(import|export|class|function)" | head -5; done`;
-        const structure = ShellExecutor.execute(structureCommand);
+        // Get directory structure first
+        const dirStructureCommand = `find . -type d ${excludePatterns} | head -20 | sort`;
+        const dirStructure = ShellExecutor.execute(dirStructureCommand);
+
+        // Get key files with their purposes
+        const keyFilesCommand = `find . -type f \\( ${extensions} \\) ${excludePatterns} | head -${CONTEXT_CONFIG.MAX_PROJECT_FILES} | while read file; do 
+          echo "=== $file ==="
+          # Get file purpose from first few lines
+          head -20 "$file" 2>/dev/null | grep -E "(export|class|function|interface|type|const.*=)" | head -3
+          echo ""
+        done`;
+        const keyFiles = ShellExecutor.execute(keyFilesCommand);
+
+        const structure = `Directory Structure:\n${dirStructure}\n\nKey Files:\n${keyFiles}`;
         return `--- Project Structure Context ---\n${structure}\n--- End Project Structure ---\n`;
       } catch (error) {
         core.warning(`⚠️  Could not get project structure: ${error.message}`);
@@ -30810,20 +30832,63 @@ class ContextService {
 
     return this.executeWithTiming('dependencies', () => {
       try {
-        let context = '';
+        let context = '--- Dependencies Context ---\n';
 
-        // Get package.json dependencies with fallback
-        const packageJson = ShellExecutor.executeWithFallback(
-          'cat package.json | jq -r ".dependencies, .devDependencies"',
-          'cat package.json'
-        );
+        // Get package.json with better formatting
+        try {
+          const packageJsonRaw = ShellExecutor.execute('cat package.json');
+          const packageJson = JSON.parse(packageJsonRaw);
 
-        if (packageJson.includes('"dependencies"') || packageJson.includes('"devDependencies"')) {
-          context += `--- Dependencies Context ---\n${packageJson}\n--- End Dependencies ---\n`;
-        } else {
-          context += `--- Package.json Context ---\n${packageJson}\n--- End Package.json ---\n`;
+          context += '📦 Package.json Summary:\n';
+          context += `  Name: ${packageJson.name || 'N/A'}\n`;
+          context += `  Version: ${packageJson.version || 'N/A'}\n`;
+          context += `  Description: ${packageJson.description || 'N/A'}\n`;
+
+          if (packageJson.dependencies) {
+            const depCount = Object.keys(packageJson.dependencies).length;
+            context += `  Dependencies: ${depCount} packages\n`;
+            if (depCount <= 20) {
+              context += '  Key Dependencies:\n';
+              Object.entries(packageJson.dependencies)
+                .slice(0, 10)
+                .forEach(([name, version]) => {
+                  context += `    ${name}: ${version}\n`;
+                });
+            }
+          }
+
+          if (packageJson.devDependencies) {
+            const devDepCount = Object.keys(packageJson.devDependencies).length;
+            context += `  Dev Dependencies: ${devDepCount} packages\n`;
+          }
+
+          if (packageJson.scripts) {
+            context += '  Available Scripts:\n';
+            Object.keys(packageJson.scripts)
+              .slice(0, 5)
+              .forEach(script => {
+                context += `    ${script}\n`;
+              });
+          }
+        } catch {
+          // Fallback to raw package.json
+          const packageJson = ShellExecutor.execute('cat package.json');
+          context += `📦 Package.json (raw):\n${packageJson}\n`;
         }
 
+        // Get lock file info if available
+        try {
+          const lockFile = ShellExecutor.execute(
+            'ls -la package-lock.json yarn.lock 2>/dev/null | head -1'
+          );
+          if (lockFile.trim()) {
+            context += `\n🔒 Lock file: ${lockFile.trim()}\n`;
+          }
+        } catch {
+          // No lock file found
+        }
+
+        context += '\n--- End Dependencies ---\n';
         return context;
       } catch (error) {
         core.warning(`⚠️  Could not get dependency context: ${error.message}`);
@@ -30864,21 +30929,110 @@ class ContextService {
       try {
         let context = '--- File Relationships Context ---\n';
 
+        if (!changedFiles || changedFiles.length === 0) {
+          context += 'No changed files to analyze relationships.\n';
+          context += '--- End File Relationships ---\n';
+          return context;
+        }
+
+        // Analyze each changed file
         for (const file of changedFiles) {
           try {
-            // Get imports from this file with optimized execution
-            const imports = ShellExecutor.executeWithFallback(
-              `git show HEAD:${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`,
-              `cat ${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`
+            context += `\n📁 ${file}:\n`;
+
+            // Get file content to analyze
+            const fileContent = ShellExecutor.executeWithFallback(
+              `git show HEAD:${file} 2>/dev/null`,
+              `cat ${file} 2>/dev/null`
             );
 
-            if (imports.trim()) {
-              context += `\n${file} imports:\n${imports}\n`;
+            if (!fileContent.trim()) {
+              context += '  (File not found or empty)\n';
+              continue;
             }
-          } catch {
-            // Skip this file if we can't read it
+
+            // Extract imports
+            const imports = fileContent
+              .split('\n')
+              .filter(line => line.trim().match(/^(import|require|from)/))
+              .slice(0, CONTEXT_CONFIG.MAX_IMPORT_LINES);
+
+            if (imports.length > 0) {
+              context += '  📥 Imports:\n';
+              imports.forEach(imp => {
+                context += `    ${imp.trim()}\n`;
+              });
+            }
+
+            // Extract exports
+            const exports = fileContent
+              .split('\n')
+              .filter(line => line.trim().match(/^(export|module\.exports)/))
+              .slice(0, 5);
+
+            if (exports.length > 0) {
+              context += '  📤 Exports:\n';
+              exports.forEach(exp => {
+                context += `    ${exp.trim()}\n`;
+              });
+            }
+
+            // Extract key functions/classes
+            const keyDefinitions = fileContent
+              .split('\n')
+              .filter(line => line.trim().match(/(function|class|const.*=|let.*=|var.*=).*{/))
+              .slice(0, 5);
+
+            if (keyDefinitions.length > 0) {
+              context += '  🔧 Key Definitions:\n';
+              keyDefinitions.forEach(def => {
+                context += `    ${def.trim()}\n`;
+              });
+            }
+          } catch (error) {
+            context += `  ⚠️ Error analyzing file: ${error.message}\n`;
             continue;
           }
+        }
+
+        // Find files that import from changed files
+        context += '\n🔗 Files that depend on changed files:\n';
+        try {
+          const allFiles = ShellExecutor.execute(
+            `find . -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" \\) -not -path "./node_modules/*" -not -path "./dist/*" | head -50`
+          );
+
+          const filesToCheck = allFiles
+            .trim()
+            .split('\n')
+            .filter(f => f.trim());
+          let dependencyCount = 0;
+
+          for (const checkFile of filesToCheck) {
+            if (dependencyCount >= 10) break; // Limit to prevent too much output
+
+            try {
+              const content = ShellExecutor.execute(`cat "${checkFile}" 2>/dev/null`);
+              const changedFileNames = changedFiles.map(f => f.split('/').pop().split('.')[0]);
+
+              const hasDependency = changedFileNames.some(
+                name =>
+                  content.includes(`from '${name}'`) ||
+                  content.includes(`from "./${name}"`) ||
+                  content.includes(`require('${name}')`) ||
+                  content.includes(`import ${name}`)
+              );
+
+              if (hasDependency && !changedFiles.includes(checkFile)) {
+                context += `  📄 ${checkFile} (depends on changed files)\n`;
+                dependencyCount++;
+              }
+            } catch {
+              continue;
+            }
+          }
+        } catch (error) {
+          context += `  ⚠️ Could not analyze dependencies: ${error.message}\n`;
         }
 
         context += '\n--- End File Relationships ---\n';
@@ -30921,7 +31075,9 @@ class ContextService {
     // Wait for all contexts to be generated in parallel
     const contexts = await Promise.all(contextPromises);
     const filteredContexts = contexts.filter(context => context.trim());
-    const combinedContext = filteredContexts.join('\n');
+
+    // Organize context with better structure
+    const organizedContext = this.organizeContextForLLM(filteredContexts, changedFiles);
 
     const totalTime = Date.now() - startTime;
     core.info(
@@ -30929,8 +31085,8 @@ class ContextService {
     );
 
     // Apply relevance filtering
-    const filteredContext = this.filterRelevantContext(combinedContext, changedFiles);
-    const originalSize = Math.round(combinedContext.length / 1024);
+    const filteredContext = this.filterRelevantContext(organizedContext, changedFiles);
+    const originalSize = Math.round(organizedContext.length / 1024);
     const filteredSize = Math.round(filteredContext.length / 1024);
 
     if (filteredSize < originalSize) {
@@ -30964,6 +31120,68 @@ class ContextService {
     core.info(`📋 Final context content:\n${filteredContext}`);
 
     return filteredContext;
+  }
+
+  /**
+   * Organize context sections for better LLM consumption
+   */
+  organizeContextForLLM(contexts, changedFiles) {
+    if (!contexts || contexts.length === 0) {
+      return '';
+    }
+
+    let organizedContext = '🔍 PROJECT CONTEXT FOR CODE REVIEW\n';
+    organizedContext += '='.repeat(50) + '\n\n';
+
+    // Add changed files summary
+    if (changedFiles && changedFiles.length > 0) {
+      organizedContext += '📝 FILES BEING REVIEWED:\n';
+      changedFiles.forEach((file, index) => {
+        organizedContext += `  ${index + 1}. ${file}\n`;
+      });
+      organizedContext += '\n';
+    }
+
+    // Process each context section
+    contexts.forEach(context => {
+      if (!context.trim()) return;
+
+      // Extract section type and content
+      const lines = context.split('\n');
+      let sectionType = '';
+      let content = '';
+      let inSection = false;
+
+      for (const line of lines) {
+        if (line.includes('---') && line.includes('Context')) {
+          sectionType = line
+            .replace(/---/g, '')
+            .replace(/Context/g, '')
+            .trim();
+          inSection = true;
+          continue;
+        }
+        if (line.includes('--- End')) {
+          inSection = false;
+          continue;
+        }
+        if (inSection) {
+          content += line + '\n';
+        }
+      }
+
+      // Format section based on type
+      if (sectionType && content.trim()) {
+        organizedContext += `📋 ${sectionType.toUpperCase()}:\n`;
+        organizedContext += '-'.repeat(30) + '\n';
+        organizedContext += content.trim() + '\n\n';
+      }
+    });
+
+    organizedContext += '='.repeat(50) + '\n';
+    organizedContext += 'END PROJECT CONTEXT\n\n';
+
+    return organizedContext;
   }
 
   /**
