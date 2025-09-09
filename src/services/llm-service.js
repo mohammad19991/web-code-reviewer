@@ -338,13 +338,17 @@ This chunk was too large to process completely. Here's a summary of what was det
       const estimatedTokens = this.estimateTokenCount(prompt, diff);
 
       core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
+      core.info(`📁 Changed files passed to LLM: ${changedFiles.length} files`);
+      if (changedFiles.length > 0) {
+        core.info(`📁 Changed files: ${changedFiles.join(', ')}`);
+      }
 
       // If diff is small enough, process it normally
       if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1, [], null);
+        return await this.callLLMChunk(prompt, diff, 0, 1, changedFiles, null);
       }
 
       // Split diff into chunks with intelligent sizing

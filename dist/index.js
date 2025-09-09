@@ -30942,6 +30942,20 @@ class ContextService {
             if (keyFiles.trim()) {
               context += `Key project files found:\n${keyFiles}\n`;
             }
+
+            // Analyze import/export patterns in key files
+            const importExportPatterns = ShellExecutor.execute(
+              `grep -r "import\\|export\\|require" . --include="*.js" --include="*.ts" --include="*.tsx" --include="*.jsx" | head -10`
+            );
+            if (importExportPatterns.trim()) {
+              context += '\n📦 Common Import/Export Patterns:\n';
+              importExportPatterns
+                .trim()
+                .split('\n')
+                .forEach(pattern => {
+                  context += `  ${pattern}\n`;
+                });
+            }
           } catch {
             // Ignore if we can't find key files
           }
@@ -31044,7 +31058,28 @@ class ContextService {
         let context = '--- Semantic Code Context ---\n';
 
         if (!changedFiles || changedFiles.length === 0) {
+          // Provide fallback context when no changed files
           context += 'No changed files to analyze semantically.\n';
+          context += 'Providing project structure context instead...\n';
+
+          // Get some key files from the project for context
+          try {
+            const keyFiles = ShellExecutor.execute(
+              `find . -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" | grep -E "(index|main|app|config|service|component)" | head -10`
+            );
+            if (keyFiles.trim()) {
+              context += '\n📁 Key Project Files:\n';
+              keyFiles
+                .trim()
+                .split('\n')
+                .forEach(file => {
+                  context += `  ${file}\n`;
+                });
+            }
+          } catch {
+            // Ignore if we can't find key files
+          }
+
           context += '--- End Semantic Code ---\n';
           return context;
         }
@@ -31147,6 +31182,32 @@ class ContextService {
 
         if (!changedFiles || changedFiles.length === 0) {
           context += 'No changed files to find related tests.\n';
+          context += 'Providing global test context instead...\n';
+
+          // Find all test files in the project
+          try {
+            const testFiles = ShellExecutor.execute(
+              `find . -name "*.test.*" -o -name "*.spec.*" -o -name "__tests__" -type d | head -10`
+            );
+            if (testFiles.trim()) {
+              context += '\n🧪 Test Files Found:\n';
+              testFiles
+                .trim()
+                .split('\n')
+                .forEach(test => {
+                  context += `  ${test}\n`;
+                });
+            }
+
+            // Get test coverage info if available
+            const coverageInfo = this.getTestCoverageInfo();
+            if (coverageInfo) {
+              context += `\n📊 Test Coverage:\n${coverageInfo}\n`;
+            }
+          } catch {
+            // Ignore if we can't find test files
+          }
+
           context += '--- End Test Context ---\n';
           return context;
         }
@@ -31185,6 +31246,14 @@ class ContextService {
 
         if (!changedFiles || changedFiles.length === 0) {
           context += 'No changed files to analyze patterns.\n';
+          context += 'Providing global code patterns instead...\n';
+
+          // Get common patterns from the codebase
+          const commonPatterns = this.getCommonPatterns();
+          if (commonPatterns) {
+            context += `\n🔄 Common Code Patterns:\n${commonPatterns}\n`;
+          }
+
           context += '--- End Code Patterns ---\n';
           return context;
         }
@@ -31218,6 +31287,13 @@ class ContextService {
    */
   async getComprehensiveContext(changedFiles, estimatedTokens = 0) {
     const startTime = Date.now();
+
+    core.info(
+      `🔍 Context Service: Received ${changedFiles ? changedFiles.length : 0} changed files`
+    );
+    if (changedFiles && changedFiles.length > 0) {
+      core.info(`🔍 Changed files: ${changedFiles.join(', ')}`);
+    }
 
     // Generate LLM-focused context in parallel
     const contextPromises = [
@@ -31828,6 +31904,14 @@ class ContextService {
 
         if (!changedFiles || changedFiles.length === 0) {
           context += 'No changed files to analyze for security patterns.\n';
+          context += 'Providing global security context instead...\n';
+
+          // Get global security patterns from codebase
+          const globalSecurityPatterns = this.getGlobalSecurityPatterns();
+          if (globalSecurityPatterns) {
+            context += `\n🛡️ Global Security Patterns:\n${globalSecurityPatterns}\n`;
+          }
+
           context += '--- End Security ---\n';
           return context;
         }
@@ -31879,6 +31963,26 @@ class ContextService {
 
         if (!changedFiles || changedFiles.length === 0) {
           context += 'No changed files to analyze for performance patterns.\n';
+          context += 'Providing global performance context instead...\n';
+
+          // Get global performance patterns from codebase
+          try {
+            const performancePatterns = ShellExecutor.execute(
+              `grep -r "async\\|await\\|promise\\|setTimeout\\|setInterval\\|forEach\\|map\\|filter\\|reduce" . --include="*.js" --include="*.ts" --include="*.tsx" --include="*.jsx" | head -10`
+            );
+            if (performancePatterns.trim()) {
+              context += '\n⚡ Common Performance Patterns:\n';
+              performancePatterns
+                .trim()
+                .split('\n')
+                .forEach(pattern => {
+                  context += `  ${pattern}\n`;
+                });
+            }
+          } catch {
+            // Ignore if we can't find patterns
+          }
+
           context += '--- End Performance ---\n';
           return context;
         }
@@ -32456,6 +32560,15 @@ class FileService {
 
           // Check if file matches the specified language
           const matchesLanguage = this.matchesLanguage(file);
+
+          // Debug logging for filtering
+          core.debug(`File: ${file}`);
+          core.debug(`  matchesPath: ${matchesPath} (paths: ${JSON.stringify(this.pathToFiles)})`);
+          core.debug(
+            `  shouldIgnore: ${shouldIgnore} (patterns: ${JSON.stringify(this.ignorePatterns)})`
+          );
+          core.debug(`  matchesLanguage: ${matchesLanguage} (language: ${this.language})`);
+          core.debug(`  final result: ${matchesPath && !shouldIgnore && matchesLanguage}`);
 
           return matchesPath && !shouldIgnore && matchesLanguage;
         });
@@ -33340,13 +33453,17 @@ This chunk was too large to process completely. Here's a summary of what was det
       const estimatedTokens = this.estimateTokenCount(prompt, diff);
 
       core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
+      core.info(`📁 Changed files passed to LLM: ${changedFiles.length} files`);
+      if (changedFiles.length > 0) {
+        core.info(`📁 Changed files: ${changedFiles.join(', ')}`);
+      }
 
       // If diff is small enough, process it normally
       if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1, [], null);
+        return await this.callLLMChunk(prompt, diff, 0, 1, changedFiles, null);
       }
 
       // Split diff into chunks with intelligent sizing
