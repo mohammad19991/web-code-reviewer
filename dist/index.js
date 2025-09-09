@@ -29923,6 +29923,41 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 2335:
+/***/ ((module) => {
+
+/**
+ * Context configuration for enhanced LLM prompts
+ */
+
+const CONTEXT_CONFIG = {
+  // Context size limits
+  MAX_CONTEXT_SIZE: 50 * 1024, // 50KB max context size
+  MAX_PROJECT_FILES: 20, // Max files to include in project structure
+  MAX_COMMIT_HISTORY: 10, // Max commits to include in recent history
+  MAX_IMPORT_LINES: 10, // Max import lines per file
+
+  // Context features (can be toggled)
+  ENABLE_PROJECT_STRUCTURE: true,
+  ENABLE_DEPENDENCIES: true,
+  ENABLE_COMMIT_HISTORY: true,
+  ENABLE_FILE_RELATIONSHIPS: true,
+
+  // File patterns to exclude from context
+  EXCLUDE_PATTERNS: ['node_modules', 'dist', '.git', 'coverage', '.nyc_output', 'build', 'out'],
+
+  // File extensions to include in project structure
+  INCLUDE_EXTENSIONS: ['.js', '.ts', '.tsx', '.jsx', '.vue', '.svelte'],
+
+  // Context priority (order matters)
+  CONTEXT_PRIORITY: ['dependencies', 'project_structure', 'file_relationships', 'commit_history']
+};
+
+module.exports = CONTEXT_CONFIG;
+
+
+/***/ }),
+
 /***/ 8005:
 /***/ ((module) => {
 
@@ -30651,6 +30686,7 @@ module.exports = SHARED_PROMPT_COMPONENTS;
 
 const { execSync } = __nccwpck_require__(5317);
 const core = __nccwpck_require__(7484);
+const CONTEXT_CONFIG = __nccwpck_require__(2335);
 
 class ContextService {
   constructor(baseBranch) {
@@ -30661,9 +30697,26 @@ class ContextService {
    * Get project structure context
    */
   getProjectStructure() {
+    if (!CONTEXT_CONFIG.ENABLE_PROJECT_STRUCTURE) {
+      return '';
+    }
+
     try {
-      const structureCommand = `find . -type f -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" | head -20 | xargs -I {} sh -c 'echo "=== {} ===" && head -10 "{}" | grep -E "(import|export|class|function)" | head -5'`;
-      const structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 5 * 1024 * 1024 });
+      // Build exclude patterns
+      const excludePatterns = CONTEXT_CONFIG.EXCLUDE_PATTERNS.map(
+        pattern => `-not -path "./${pattern}/*"`
+      ).join(' ');
+
+      // Build file extensions
+      const extensions = CONTEXT_CONFIG.INCLUDE_EXTENSIONS.map(ext => `-name "*${ext}"`).join(
+        ' -o '
+      );
+
+      const structureCommand = `find . -type f \\( ${extensions} \\) ${excludePatterns} | head -${CONTEXT_CONFIG.MAX_PROJECT_FILES} | while read file; do echo "=== $file ==="; head -10 "$file" 2>/dev/null | grep -E "(import|export|class|function)" | head -5; done`;
+      const structure = execSync(structureCommand, {
+        encoding: 'utf8',
+        maxBuffer: 5 * 1024 * 1024
+      });
       return `--- Project Structure Context ---\n${structure}\n--- End Project Structure ---\n`;
     } catch (error) {
       core.warning(`⚠️  Could not get project structure: ${error.message}`);
@@ -30675,14 +30728,20 @@ class ContextService {
    * Get dependency context (package.json, imports)
    */
   getDependencyContext() {
+    if (!CONTEXT_CONFIG.ENABLE_DEPENDENCIES) {
+      return '';
+    }
+
     try {
       let context = '';
-      
+
       // Get package.json dependencies
       try {
-        const packageJson = execSync('cat package.json | jq -r ".dependencies, .devDependencies"', { encoding: 'utf8' });
+        const packageJson = execSync('cat package.json | jq -r ".dependencies, .devDependencies"', {
+          encoding: 'utf8'
+        });
         context += `--- Dependencies Context ---\n${packageJson}\n--- End Dependencies ---\n`;
-      } catch (error) {
+      } catch {
         // If jq is not available, try without it
         const packageJson = execSync('cat package.json', { encoding: 'utf8' });
         context += `--- Package.json Context ---\n${packageJson}\n--- End Package.json ---\n`;
@@ -30699,8 +30758,12 @@ class ContextService {
    * Get recent commit context for pattern analysis
    */
   getRecentCommitContext() {
+    if (!CONTEXT_CONFIG.ENABLE_COMMIT_HISTORY) {
+      return '';
+    }
+
     try {
-      const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -10`;
+      const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY}`;
       const commits = execSync(commitCommand, { encoding: 'utf8' });
       return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
     } catch (error) {
@@ -30713,23 +30776,41 @@ class ContextService {
    * Get file relationship context (imports/exports between changed files)
    */
   getFileRelationshipContext(changedFiles) {
+    if (!CONTEXT_CONFIG.ENABLE_FILE_RELATIONSHIPS) {
+      return '';
+    }
+
     try {
       let context = '--- File Relationships Context ---\n';
-      
+
       for (const file of changedFiles) {
         try {
-          // Get imports from this file
-          const importsCommand = `git show HEAD:${file} | grep -E '^import.*from' | head -10`;
-          const imports = execSync(importsCommand, { encoding: 'utf8' });
-          
+          // Get imports from this file (try multiple approaches)
+          let imports = '';
+          try {
+            // First try git show
+            const importsCommand = `git show HEAD:${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`;
+            imports = execSync(importsCommand, { encoding: 'utf8' });
+          } catch {
+            // If git show fails, try reading file directly
+            try {
+              const directCommand = `cat ${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`;
+              imports = execSync(directCommand, { encoding: 'utf8' });
+            } catch {
+              // File might not exist, skip
+              continue;
+            }
+          }
+
           if (imports.trim()) {
             context += `\n${file} imports:\n${imports}\n`;
           }
-        } catch (error) {
-          // File might not exist in HEAD, skip
+        } catch {
+          // Skip this file if we can't read it
+          continue;
         }
       }
-      
+
       context += '\n--- End File Relationships ---\n';
       return context;
     } catch (error) {
@@ -30739,17 +30820,39 @@ class ContextService {
   }
 
   /**
-   * Get comprehensive context for LLM
+   * Get comprehensive context for LLM with size limits
    */
   getComprehensiveContext(changedFiles) {
-    const contexts = [
-      this.getProjectStructure(),
-      this.getDependencyContext(),
-      this.getRecentCommitContext(),
-      this.getFileRelationshipContext(changedFiles)
-    ];
+    // Get contexts in priority order
+    const contexts = [];
 
-    return contexts.filter(context => context.trim()).join('\n');
+    for (const contextType of CONTEXT_CONFIG.CONTEXT_PRIORITY) {
+      if (contextType === 'dependencies') {
+        contexts.push(this.getDependencyContext());
+      } else if (contextType === 'project_structure') {
+        contexts.push(this.getProjectStructure());
+      } else if (contextType === 'file_relationships') {
+        contexts.push(this.getFileRelationshipContext(changedFiles));
+      } else if (contextType === 'commit_history') {
+        contexts.push(this.getRecentCommitContext());
+      }
+    }
+
+    const filteredContexts = contexts.filter(context => context.trim());
+    const combinedContext = filteredContexts.join('\n');
+
+    // Limit context size to prevent token overflow
+    if (combinedContext.length > CONTEXT_CONFIG.MAX_CONTEXT_SIZE) {
+      core.warning(
+        `⚠️  Context size (${Math.round(combinedContext.length / 1024)}KB) exceeds limit, truncating...`
+      );
+      return (
+        combinedContext.substring(0, CONTEXT_CONFIG.MAX_CONTEXT_SIZE) +
+        '\n\n--- [Context truncated due to size limits] ---'
+      );
+    }
+
+    return combinedContext;
   }
 
   /**
@@ -30862,10 +30965,10 @@ class FileService {
       // Enhanced diff with more context lines and file structure
       const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
-      
+
       // Add file structure context
       const fileStructure = this.getFileStructureContext(filePath);
-      
+
       return `${fileStructure}\n${diff}`;
     } catch (error) {
       core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
@@ -30878,11 +30981,29 @@ class FileService {
    */
   getFileStructureContext(filePath) {
     try {
-      // Get file structure without full content
-      const structureCommand = `git show HEAD:${filePath} | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
-      const structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
-      return `--- File Structure Context for ${filePath} ---\n${structure}\n--- End Structure ---\n`;
-    } catch (error) {
+      // Get file structure without full content (try multiple approaches)
+      let structure = '';
+      try {
+        // First try git show
+        const structureCommand = `git show HEAD:${filePath} 2>/dev/null | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
+        structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      } catch {
+        // If git show fails, try reading file directly
+        try {
+          const directCommand = `cat ${filePath} 2>/dev/null | head -50 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum)' | head -20`;
+          structure = execSync(directCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+        } catch {
+          // If both fail, return basic file header
+          return `--- File: ${filePath} ---\n`;
+        }
+      }
+
+      if (structure.trim()) {
+        return `--- File Structure Context for ${filePath} ---\n${structure}\n--- End Structure ---\n`;
+      } else {
+        return `--- File: ${filePath} ---\n`;
+      }
+    } catch {
       // If structure extraction fails, continue without it
       return `--- File: ${filePath} ---\n`;
     }
