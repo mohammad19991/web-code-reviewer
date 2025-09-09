@@ -62,6 +62,14 @@ class ContextService {
   }
 
   /**
+   * Safely escape file path for shell commands
+   */
+  escapeFilePath(filePath) {
+    // Escape single quotes and wrap in single quotes to handle special characters
+    return `'${filePath.replace(/'/g, "'\"'\"'")}'`;
+  }
+
+  /**
    * Calculate dynamic context size based on available tokens
    */
   calculateDynamicContextSize(estimatedTokens, maxTokens = 200000) {
@@ -142,37 +150,8 @@ class ContextService {
           const packageJsonRaw = ShellExecutor.execute('cat package.json');
           const packageJson = JSON.parse(packageJsonRaw);
 
-          context += '📦 Package.json Summary:\n';
-          context += `  Name: ${packageJson.name || 'N/A'}\n`;
-          context += `  Version: ${packageJson.version || 'N/A'}\n`;
-          context += `  Description: ${packageJson.description || 'N/A'}\n`;
-
-          if (packageJson.dependencies) {
-            const depCount = Object.keys(packageJson.dependencies).length;
-            context += `  Dependencies: ${depCount} packages\n`;
-            if (depCount <= 20) {
-              context += '  Key Dependencies:\n';
-              Object.entries(packageJson.dependencies)
-                .slice(0, 10)
-                .forEach(([name, version]) => {
-                  context += `    ${name}: ${version}\n`;
-                });
-            }
-          }
-
-          if (packageJson.devDependencies) {
-            const devDepCount = Object.keys(packageJson.devDependencies).length;
-            context += `  Dev Dependencies: ${devDepCount} packages\n`;
-          }
-
-          if (packageJson.scripts) {
-            context += '  Available Scripts:\n';
-            Object.keys(packageJson.scripts)
-              .slice(0, 5)
-              .forEach(script => {
-                context += `    ${script}\n`;
-              });
-          }
+          context += '📦 Project Type:\n';
+          context += `  ${packageJson.type || 'CommonJS'}\n`;
         } catch {
           // Fallback to raw package.json
           const packageJson = ShellExecutor.execute('cat package.json');
@@ -210,7 +189,7 @@ class ContextService {
 
     return this.executeWithTiming('commit_history', () => {
       try {
-        const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY}`;
+        const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY} | sed 's/^[a-f0-9]* //'`;
         const commits = ShellExecutor.execute(commitCommand);
         return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
       } catch (error) {
@@ -233,36 +212,7 @@ class ContextService {
         let context = '--- File Relationships Context ---\n';
 
         if (!changedFiles || changedFiles.length === 0) {
-          // Even without changed files, we can still analyze the project structure
-          context += 'No specific changed files to analyze relationships.\n';
-          context += 'Analyzing project structure for context...\n';
-
-          // Get a few key files from the project for context
-          try {
-            const keyFiles = ShellExecutor.execute(
-              `find . -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" | grep -E "(index|main|app|config)" | head -5`
-            );
-            if (keyFiles.trim()) {
-              context += `Key project files found:\n${keyFiles}\n`;
-            }
-
-            // Analyze import/export patterns in key files
-            const importExportPatterns = ShellExecutor.execute(
-              `grep -r "import\\|export\\|require" . --include="*.js" --include="*.ts" --include="*.tsx" --include="*.jsx" | head -10`
-            );
-            if (importExportPatterns.trim()) {
-              context += '\n📦 Common Import/Export Patterns:\n';
-              importExportPatterns
-                .trim()
-                .split('\n')
-                .forEach(pattern => {
-                  context += `  ${pattern}\n`;
-                });
-            }
-          } catch {
-            // Ignore if we can't find key files
-          }
-
+          context += 'No changed files to analyze relationships.\n';
           context += '--- End File Relationships ---\n';
           return context;
         }
@@ -273,9 +223,10 @@ class ContextService {
             context += `\n🔗 ${file}:\n`;
 
             // Get file content to analyze
+            const escapedFile = this.escapeFilePath(file);
             const fileContent = ShellExecutor.executeWithFallback(
-              `git show HEAD:${file} 2>/dev/null`,
-              `cat ${file} 2>/dev/null`
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
             );
 
             if (!fileContent.trim()) {
@@ -283,63 +234,26 @@ class ContextService {
               continue;
             }
 
-            // 1. INCOMING RELATIONSHIPS (what this file imports/requires)
+            // Focus only on direct imports and exports (most relevant for review)
             const incomingRelationships = this.analyzeIncomingRelationships(fileContent);
             if (incomingRelationships.length > 0) {
-              context += '  📥 Dependencies (what this file imports):\n';
-              incomingRelationships.forEach(rel => {
+              context += '  📥 Imports:\n';
+              incomingRelationships.slice(0, 5).forEach(rel => {
+                // Limit to 5 most important
                 context += `    ${rel}\n`;
               });
             }
 
-            // 2. OUTGOING RELATIONSHIPS (what this file exports/provides)
             const outgoingRelationships = this.analyzeOutgoingRelationships(fileContent);
             if (outgoingRelationships.length > 0) {
-              context += '  📤 Exports (what this file provides):\n';
-              outgoingRelationships.forEach(rel => {
+              context += '  📤 Exports:\n';
+              outgoingRelationships.slice(0, 5).forEach(rel => {
+                // Limit to 5 most important
                 context += `    ${rel}\n`;
-              });
-            }
-
-            // 3. DEPENDENT FILES (files that import from this file)
-            const dependentFiles = this.findDependentFiles(file);
-            if (dependentFiles.length > 0) {
-              context += '  🔗 Files that depend on this file:\n';
-              dependentFiles.forEach(dep => {
-                context += `    ${dep}\n`;
-              });
-            }
-
-            // 4. API CONTRACTS (interfaces, types, function signatures)
-            const apiContracts = this.extractAPIContracts(fileContent);
-            if (apiContracts.length > 0) {
-              context += '  📋 API Contracts (interfaces/types):\n';
-              apiContracts.forEach(contract => {
-                context += `    ${contract}\n`;
-              });
-            }
-
-            // 5. DATA FLOW (how data flows in/out of this file)
-            const dataFlow = this.analyzeDataFlow(fileContent);
-            if (dataFlow.length > 0) {
-              context += '  🌊 Data Flow:\n';
-              dataFlow.forEach(flow => {
-                context += `    ${flow}\n`;
               });
             }
           } catch (error) {
             context += `  ⚠️ Could not analyze ${file}: ${error.message}\n`;
-          }
-        }
-
-        // 6. CROSS-FILE RELATIONSHIPS (how changed files relate to each other)
-        if (changedFiles.length > 1) {
-          const crossFileRelationships = this.analyzeCrossFileRelationships(changedFiles);
-          if (crossFileRelationships.length > 0) {
-            context += '\n🔄 Cross-File Relationships:\n';
-            crossFileRelationships.forEach(rel => {
-              context += `  ${rel}\n`;
-            });
           }
         }
 
@@ -361,28 +275,7 @@ class ContextService {
         let context = '--- Semantic Code Context ---\n';
 
         if (!changedFiles || changedFiles.length === 0) {
-          // Provide fallback context when no changed files
-          context += 'No changed files to analyze semantically.\n';
-          context += 'Providing project structure context instead...\n';
-
-          // Get some key files from the project for context
-          try {
-            const keyFiles = ShellExecutor.execute(
-              `find . -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.jsx" | grep -E "(index|main|app|config|service|component)" | head -10`
-            );
-            if (keyFiles.trim()) {
-              context += '\n📁 Key Project Files:\n';
-              keyFiles
-                .trim()
-                .split('\n')
-                .forEach(file => {
-                  context += `  ${file}\n`;
-                });
-            }
-          } catch {
-            // Ignore if we can't find key files
-          }
-
+          context += 'No changed files to analyze.\n';
           context += '--- End Semantic Code ---\n';
           return context;
         }
@@ -393,9 +286,10 @@ class ContextService {
             context += `\n🔍 ${file}:\n`;
 
             // Get file content
+            const escapedFile = this.escapeFilePath(file);
             const fileContent = ShellExecutor.executeWithFallback(
-              `git show HEAD:${file} 2>/dev/null`,
-              `cat ${file} 2>/dev/null`
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
             );
 
             if (!fileContent.trim()) {
@@ -403,30 +297,13 @@ class ContextService {
               continue;
             }
 
-            // Extract function/class definitions
+            // Extract only key function/class definitions (most relevant for review)
             const definitions = this.extractCodeDefinitions(fileContent);
             if (definitions.length > 0) {
               context += '  📝 Key Definitions:\n';
-              definitions.forEach(def => {
+              definitions.slice(0, 5).forEach(def => {
+                // Limit to 5 most important
                 context += `    ${def}\n`;
-              });
-            }
-
-            // Extract function calls and their purposes
-            const functionCalls = this.extractFunctionCalls(fileContent);
-            if (functionCalls.length > 0) {
-              context += '  🔗 Function Calls:\n';
-              functionCalls.forEach(call => {
-                context += `    ${call}\n`;
-              });
-            }
-
-            // Extract error handling patterns
-            const errorHandling = this.extractErrorHandling(fileContent);
-            if (errorHandling.length > 0) {
-              context += '  ⚠️ Error Handling:\n';
-              errorHandling.forEach(error => {
-                context += `    ${error}\n`;
               });
             }
           } catch (error) {
@@ -598,17 +475,10 @@ class ContextService {
       core.info(`🔍 Changed files: ${changedFiles.join(', ')}`);
     }
 
-    // Generate LLM-focused context in parallel
+    // Generate focused context for code review - only what's truly relevant
     const contextPromises = [
       this.getSemanticCodeContext(changedFiles),
       this.getFileRelationshipsContext(changedFiles),
-      this.getArchitecturalContext(changedFiles),
-      this.getTestContext(changedFiles),
-      this.getCodePatternsContext(changedFiles),
-      this.getSecurityContext(changedFiles),
-      this.getPerformanceContext(changedFiles),
-      this.getConfigurationContext(changedFiles),
-      this.getDocumentationContext(changedFiles),
       this.getDependencyContext(),
       this.getRecentCommitContext()
     ];
@@ -1222,9 +1092,10 @@ class ContextService {
         // Analyze security patterns in changed files
         for (const file of changedFiles) {
           try {
+            const escapedFile = this.escapeFilePath(file);
             const fileContent = ShellExecutor.executeWithFallback(
-              `git show HEAD:${file} 2>/dev/null`,
-              `cat ${file} 2>/dev/null`
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
             );
 
             if (!fileContent.trim()) continue;
@@ -1293,9 +1164,10 @@ class ContextService {
         // Analyze performance patterns in changed files
         for (const file of changedFiles) {
           try {
+            const escapedFile = this.escapeFilePath(file);
             const fileContent = ShellExecutor.executeWithFallback(
-              `git show HEAD:${file} 2>/dev/null`,
-              `cat ${file} 2>/dev/null`
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
             );
 
             if (!fileContent.trim()) continue;
@@ -1342,9 +1214,10 @@ class ContextService {
         if (changedFiles && changedFiles.length > 0) {
           for (const file of changedFiles) {
             try {
+              const escapedFile = this.escapeFilePath(file);
               const fileContent = ShellExecutor.executeWithFallback(
-                `git show HEAD:${file} 2>/dev/null`,
-                `cat ${file} 2>/dev/null`
+                `git show HEAD:${escapedFile} 2>/dev/null`,
+                `cat ${escapedFile} 2>/dev/null`
               );
 
               if (!fileContent.trim()) continue;
@@ -1392,9 +1265,10 @@ class ContextService {
         if (changedFiles && changedFiles.length > 0) {
           for (const file of changedFiles) {
             try {
+              const escapedFile = this.escapeFilePath(file);
               const fileContent = ShellExecutor.executeWithFallback(
-                `git show HEAD:${file} 2>/dev/null`,
-                `cat ${file} 2>/dev/null`
+                `git show HEAD:${escapedFile} 2>/dev/null`,
+                `cat ${escapedFile} 2>/dev/null`
               );
 
               if (!fileContent.trim()) continue;
@@ -1605,9 +1479,10 @@ class ContextService {
 
         try {
           // Check if file1 imports from file2
+          const escapedFile1 = this.escapeFilePath(file1);
           const content1 = ShellExecutor.executeWithFallback(
-            `git show HEAD:${file1} 2>/dev/null`,
-            `cat ${file1} 2>/dev/null`
+            `git show HEAD:${escapedFile1} 2>/dev/null`,
+            `cat ${escapedFile1} 2>/dev/null`
           );
 
           const baseName2 = file2.replace(/^\.\//, '').replace(/\.[^/.]+$/, '');
@@ -1616,9 +1491,10 @@ class ContextService {
           }
 
           // Check if file2 imports from file1
+          const escapedFile2 = this.escapeFilePath(file2);
           const content2 = ShellExecutor.executeWithFallback(
-            `git show HEAD:${file2} 2>/dev/null`,
-            `cat ${file2} 2>/dev/null`
+            `git show HEAD:${escapedFile2} 2>/dev/null`,
+            `cat ${escapedFile2} 2>/dev/null`
           );
 
           const baseName1 = file1.replace(/^\.\//, '').replace(/\.[^/.]+$/, '');

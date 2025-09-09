@@ -42,15 +42,6 @@ class FileService {
           // Check if file matches the specified language
           const matchesLanguage = this.matchesLanguage(file);
 
-          // Debug logging for filtering
-          core.debug(`File: ${file}`);
-          core.debug(`  matchesPath: ${matchesPath} (paths: ${JSON.stringify(this.pathToFiles)})`);
-          core.debug(
-            `  shouldIgnore: ${shouldIgnore} (patterns: ${JSON.stringify(this.ignorePatterns)})`
-          );
-          core.debug(`  matchesLanguage: ${matchesLanguage} (language: ${this.language})`);
-          core.debug(`  final result: ${matchesPath && !shouldIgnore && matchesLanguage}`);
-
           return matchesPath && !shouldIgnore && matchesLanguage;
         });
 
