@@ -29931,11 +29931,16 @@ function wrappy (fn, cb) {
  */
 
 const CONTEXT_CONFIG = {
-  // Context size limits
-  MAX_CONTEXT_SIZE: 50 * 1024, // 50KB max context size
+  // Context size limits (dynamic based on available tokens)
+  MAX_CONTEXT_SIZE: 50 * 1024, // 50KB max context size (fallback)
   MAX_PROJECT_FILES: 20, // Max files to include in project structure
   MAX_COMMIT_HISTORY: 10, // Max commits to include in recent history
   MAX_IMPORT_LINES: 10, // Max import lines per file
+
+  // Dynamic context sizing based on available tokens
+  CONTEXT_TOKEN_RATIO: 0.25, // Use 25% of available tokens for context
+  MIN_CONTEXT_SIZE: 10 * 1024, // 10KB minimum context size
+  MAX_CONTEXT_SIZE_LARGE: 100 * 1024, // 100KB maximum context size
 
   // Context features (can be toggled)
   ENABLE_PROJECT_STRUCTURE: true,
@@ -30688,9 +30693,81 @@ const { execSync } = __nccwpck_require__(5317);
 const core = __nccwpck_require__(7484);
 const CONTEXT_CONFIG = __nccwpck_require__(2335);
 
+/**
+ * Optimized shell command execution with better error handling
+ */
+class ShellExecutor {
+  static execute(command, options = {}) {
+    const defaultOptions = {
+      encoding: 'utf8',
+      maxBuffer: 5 * 1024 * 1024,
+      timeout: 30000, // 30 second timeout
+      ...options
+    };
+
+    try {
+      return execSync(command, defaultOptions);
+    } catch (error) {
+      if (error.signal === 'SIGTERM') {
+        throw new Error(`Command timed out: ${command}`);
+      }
+      throw error;
+    }
+  }
+
+  static executeWithFallback(primaryCommand, fallbackCommand, options = {}) {
+    try {
+      return this.execute(primaryCommand, options);
+    } catch (error) {
+      core.warning(`⚠️  Primary command failed, trying fallback: ${error.message}`);
+      try {
+        return this.execute(fallbackCommand, options);
+      } catch (fallbackError) {
+        throw new Error(
+          `Both primary and fallback commands failed. Primary: ${error.message}, Fallback: ${fallbackError.message}`
+        );
+      }
+    }
+  }
+}
+
 class ContextService {
   constructor(baseBranch) {
     this.baseBranch = baseBranch;
+  }
+
+  /**
+   * Execute context generation with performance monitoring
+   */
+  executeWithTiming(contextType, generator) {
+    const startTime = Date.now();
+    const data = generator();
+    const duration = Date.now() - startTime;
+
+    core.info(`⏱️  Generated ${contextType} context in ${duration}ms`);
+    return data;
+  }
+
+  /**
+   * Calculate dynamic context size based on available tokens
+   */
+  calculateDynamicContextSize(estimatedTokens, maxTokens = 200000) {
+    const availableTokens = maxTokens - estimatedTokens;
+    const contextTokens = Math.floor(availableTokens * CONTEXT_CONFIG.CONTEXT_TOKEN_RATIO);
+
+    // Convert tokens to bytes (rough approximation: 4 chars per token)
+    const contextSize = contextTokens * 4;
+
+    // Apply min/max limits
+    const finalSize = Math.max(
+      CONTEXT_CONFIG.MIN_CONTEXT_SIZE,
+      Math.min(contextSize, CONTEXT_CONFIG.MAX_CONTEXT_SIZE_LARGE)
+    );
+
+    core.info(
+      `🎯 Dynamic context size: ${Math.round(finalSize / 1024)}KB (${contextTokens} tokens available)`
+    );
+    return finalSize;
   }
 
   /**
@@ -30701,27 +30778,26 @@ class ContextService {
       return '';
     }
 
-    try {
-      // Build exclude patterns
-      const excludePatterns = CONTEXT_CONFIG.EXCLUDE_PATTERNS.map(
-        pattern => `-not -path "./${pattern}/*"`
-      ).join(' ');
+    return this.executeWithTiming('project_structure', () => {
+      try {
+        // Build exclude patterns
+        const excludePatterns = CONTEXT_CONFIG.EXCLUDE_PATTERNS.map(
+          pattern => `-not -path "./${pattern}/*"`
+        ).join(' ');
 
-      // Build file extensions
-      const extensions = CONTEXT_CONFIG.INCLUDE_EXTENSIONS.map(ext => `-name "*${ext}"`).join(
-        ' -o '
-      );
+        // Build file extensions
+        const extensions = CONTEXT_CONFIG.INCLUDE_EXTENSIONS.map(ext => `-name "*${ext}"`).join(
+          ' -o '
+        );
 
-      const structureCommand = `find . -type f \\( ${extensions} \\) ${excludePatterns} | head -${CONTEXT_CONFIG.MAX_PROJECT_FILES} | while read file; do echo "=== $file ==="; head -10 "$file" 2>/dev/null | grep -E "(import|export|class|function)" | head -5; done`;
-      const structure = execSync(structureCommand, {
-        encoding: 'utf8',
-        maxBuffer: 5 * 1024 * 1024
-      });
-      return `--- Project Structure Context ---\n${structure}\n--- End Project Structure ---\n`;
-    } catch (error) {
-      core.warning(`⚠️  Could not get project structure: ${error.message}`);
-      return '';
-    }
+        const structureCommand = `find . -type f \\( ${extensions} \\) ${excludePatterns} | head -${CONTEXT_CONFIG.MAX_PROJECT_FILES} | while read file; do echo "=== $file ==="; head -10 "$file" 2>/dev/null | grep -E "(import|export|class|function)" | head -5; done`;
+        const structure = ShellExecutor.execute(structureCommand);
+        return `--- Project Structure Context ---\n${structure}\n--- End Project Structure ---\n`;
+      } catch (error) {
+        core.warning(`⚠️  Could not get project structure: ${error.message}`);
+        return '';
+      }
+    });
   }
 
   /**
@@ -30732,26 +30808,28 @@ class ContextService {
       return '';
     }
 
-    try {
-      let context = '';
-
-      // Get package.json dependencies
+    return this.executeWithTiming('dependencies', () => {
       try {
-        const packageJson = execSync('cat package.json | jq -r ".dependencies, .devDependencies"', {
-          encoding: 'utf8'
-        });
-        context += `--- Dependencies Context ---\n${packageJson}\n--- End Dependencies ---\n`;
-      } catch {
-        // If jq is not available, try without it
-        const packageJson = execSync('cat package.json', { encoding: 'utf8' });
-        context += `--- Package.json Context ---\n${packageJson}\n--- End Package.json ---\n`;
-      }
+        let context = '';
 
-      return context;
-    } catch (error) {
-      core.warning(`⚠️  Could not get dependency context: ${error.message}`);
-      return '';
-    }
+        // Get package.json dependencies with fallback
+        const packageJson = ShellExecutor.executeWithFallback(
+          'cat package.json | jq -r ".dependencies, .devDependencies"',
+          'cat package.json'
+        );
+
+        if (packageJson.includes('"dependencies"') || packageJson.includes('"devDependencies"')) {
+          context += `--- Dependencies Context ---\n${packageJson}\n--- End Dependencies ---\n`;
+        } else {
+          context += `--- Package.json Context ---\n${packageJson}\n--- End Package.json ---\n`;
+        }
+
+        return context;
+      } catch (error) {
+        core.warning(`⚠️  Could not get dependency context: ${error.message}`);
+        return '';
+      }
+    });
   }
 
   /**
@@ -30762,14 +30840,16 @@ class ContextService {
       return '';
     }
 
-    try {
-      const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY}`;
-      const commits = execSync(commitCommand, { encoding: 'utf8' });
-      return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
-    } catch (error) {
-      core.warning(`⚠️  Could not get recent commit context: ${error.message}`);
-      return '';
-    }
+    return this.executeWithTiming('commit_history', () => {
+      try {
+        const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY}`;
+        const commits = ShellExecutor.execute(commitCommand);
+        return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
+      } catch (error) {
+        core.warning(`⚠️  Could not get recent commit context: ${error.message}`);
+        return '';
+      }
+    });
   }
 
   /**
@@ -30780,79 +30860,203 @@ class ContextService {
       return '';
     }
 
-    try {
-      let context = '--- File Relationships Context ---\n';
+    return this.executeWithTiming('file_relationships', () => {
+      try {
+        let context = '--- File Relationships Context ---\n';
 
-      for (const file of changedFiles) {
-        try {
-          // Get imports from this file (try multiple approaches)
-          let imports = '';
+        for (const file of changedFiles) {
           try {
-            // First try git show
-            const importsCommand = `git show HEAD:${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`;
-            imports = execSync(importsCommand, { encoding: 'utf8' });
-          } catch {
-            // If git show fails, try reading file directly
-            try {
-              const directCommand = `cat ${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`;
-              imports = execSync(directCommand, { encoding: 'utf8' });
-            } catch {
-              // File might not exist, skip
-              continue;
+            // Get imports from this file with optimized execution
+            const imports = ShellExecutor.executeWithFallback(
+              `git show HEAD:${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`,
+              `cat ${file} 2>/dev/null | grep -E '^import.*from' | head -${CONTEXT_CONFIG.MAX_IMPORT_LINES}`
+            );
+
+            if (imports.trim()) {
+              context += `\n${file} imports:\n${imports}\n`;
             }
+          } catch {
+            // Skip this file if we can't read it
+            continue;
           }
-
-          if (imports.trim()) {
-            context += `\n${file} imports:\n${imports}\n`;
-          }
-        } catch {
-          // Skip this file if we can't read it
-          continue;
         }
-      }
 
-      context += '\n--- End File Relationships ---\n';
-      return context;
-    } catch (error) {
-      core.warning(`⚠️  Could not get file relationship context: ${error.message}`);
-      return '';
-    }
+        context += '\n--- End File Relationships ---\n';
+        return context;
+      } catch (error) {
+        core.warning(`⚠️  Could not get file relationship context: ${error.message}`);
+        return '';
+      }
+    });
   }
 
   /**
-   * Get comprehensive context for LLM with size limits
+   * Get comprehensive context for LLM with size limits and parallel processing
    */
-  getComprehensiveContext(changedFiles) {
-    // Get contexts in priority order
-    const contexts = [];
+  async getComprehensiveContext(changedFiles, estimatedTokens = 0) {
+    const startTime = Date.now();
 
-    for (const contextType of CONTEXT_CONFIG.CONTEXT_PRIORITY) {
-      if (contextType === 'dependencies') {
-        contexts.push(this.getDependencyContext());
-      } else if (contextType === 'project_structure') {
-        contexts.push(this.getProjectStructure());
-      } else if (contextType === 'file_relationships') {
-        contexts.push(this.getFileRelationshipContext(changedFiles));
-      } else if (contextType === 'commit_history') {
-        contexts.push(this.getRecentCommitContext());
-      }
-    }
+    // Create context generation promises in parallel
+    const contextPromises = CONTEXT_CONFIG.CONTEXT_PRIORITY.map(contextType => {
+      return new Promise(resolve => {
+        try {
+          let context = '';
+          if (contextType === 'dependencies') {
+            context = this.getDependencyContext();
+          } else if (contextType === 'project_structure') {
+            context = this.getProjectStructure();
+          } else if (contextType === 'file_relationships') {
+            context = this.getFileRelationshipContext(changedFiles);
+          } else if (contextType === 'commit_history') {
+            context = this.getRecentCommitContext();
+          }
+          resolve(context);
+        } catch (error) {
+          core.warning(`⚠️  Error generating ${contextType} context: ${error.message}`);
+          resolve('');
+        }
+      });
+    });
 
+    // Wait for all contexts to be generated in parallel
+    const contexts = await Promise.all(contextPromises);
     const filteredContexts = contexts.filter(context => context.trim());
     const combinedContext = filteredContexts.join('\n');
 
+    const totalTime = Date.now() - startTime;
+    core.info(
+      `🚀 Generated comprehensive context in ${totalTime}ms (${filteredContexts.length} contexts)`
+    );
+
+    // Apply relevance filtering
+    const filteredContext = this.filterRelevantContext(combinedContext, changedFiles);
+    const originalSize = Math.round(combinedContext.length / 1024);
+    const filteredSize = Math.round(filteredContext.length / 1024);
+
+    if (filteredSize < originalSize) {
+      core.info(
+        `🎯 Context filtered: ${originalSize}KB → ${filteredSize}KB (${Math.round((1 - filteredSize / originalSize) * 100)}% reduction)`
+      );
+    }
+
+    // Calculate dynamic context size limit
+    const dynamicLimit =
+      estimatedTokens > 0
+        ? this.calculateDynamicContextSize(estimatedTokens)
+        : CONTEXT_CONFIG.MAX_CONTEXT_SIZE;
+
     // Limit context size to prevent token overflow
-    if (combinedContext.length > CONTEXT_CONFIG.MAX_CONTEXT_SIZE) {
+    if (filteredContext.length > dynamicLimit) {
       core.warning(
-        `⚠️  Context size (${Math.round(combinedContext.length / 1024)}KB) exceeds limit, truncating...`
+        `⚠️  Context size (${filteredSize}KB) exceeds dynamic limit (${Math.round(dynamicLimit / 1024)}KB), truncating...`
       );
       return (
-        combinedContext.substring(0, CONTEXT_CONFIG.MAX_CONTEXT_SIZE) +
+        filteredContext.substring(0, dynamicLimit) +
         '\n\n--- [Context truncated due to size limits] ---'
       );
     }
 
-    return combinedContext;
+    return filteredContext;
+  }
+
+  /**
+   * Filter context based on relevance to changed files
+   */
+  filterRelevantContext(context, changedFiles) {
+    if (!changedFiles || changedFiles.length === 0) {
+      return context;
+    }
+
+    try {
+      // Extract file extensions from changed files
+      const changedExtensions = new Set(
+        changedFiles.map(file => file.split('.').pop()).filter(Boolean)
+      );
+
+      // Filter project structure context to only include relevant files
+      const lines = context.split('\n');
+      const filteredLines = [];
+      let inProjectStructure = false;
+      let skipFile = false;
+
+      for (const line of lines) {
+        if (line.includes('--- Project Structure Context ---')) {
+          inProjectStructure = true;
+          filteredLines.push(line);
+          continue;
+        }
+
+        if (line.includes('--- End Project Structure ---')) {
+          inProjectStructure = false;
+          filteredLines.push(line);
+          continue;
+        }
+
+        if (inProjectStructure && line.startsWith('=== ')) {
+          // Check if this file is relevant to changed files
+          const filePath = line.replace('=== ', '').replace(' ===', '');
+          const fileExt = filePath.split('.').pop();
+
+          // Include if extension matches changed files or if it's a core file
+          skipFile =
+            !changedExtensions.has(fileExt) &&
+            !filePath.includes('package.json') &&
+            !filePath.includes('config') &&
+            !filePath.includes('src/');
+        }
+
+        if (!skipFile) {
+          filteredLines.push(line);
+        }
+      }
+
+      return filteredLines.join('\n');
+    } catch (error) {
+      core.warning(`⚠️  Error filtering context: ${error.message}`);
+      return context; // Return original context if filtering fails
+    }
+  }
+
+  /**
+   * Summarize large context for later chunks
+   */
+  summarizeContext(context, maxSize) {
+    if (context.length <= maxSize) {
+      return context;
+    }
+
+    // Extract key sections and summarize
+    const sections = context.split('---');
+    const summary = [];
+
+    for (const section of sections) {
+      if (section.includes('Dependencies Context')) {
+        // Keep dependencies as-is (usually small)
+        summary.push(`---${section}`);
+      } else if (section.includes('Project Structure Context')) {
+        // Summarize project structure
+        const lines = section.split('\n').filter(line => line.trim());
+        const keyFiles = lines.slice(0, 5); // Keep first 5 files
+        summary.push(
+          `--- Project Structure Context (Summary) ---\n${keyFiles.join('\n')}\n[Project structure truncated for brevity]\n--- End Project Structure ---`
+        );
+      } else if (section.includes('File Relationships Context')) {
+        // Keep file relationships (usually small)
+        summary.push(`---${section}`);
+      } else if (section.includes('Recent Commits Context')) {
+        // Keep recent commits (usually small)
+        summary.push(`---${section}`);
+      }
+    }
+
+    const summarized = summary.join('\n');
+    if (summarized.length > maxSize) {
+      return (
+        summarized.substring(0, maxSize) + '\n\n--- [Context summarized due to size limits] ---'
+      );
+    }
+
+    return summarized;
   }
 
   /**
@@ -30863,10 +31067,16 @@ class ContextService {
       return `${basePrompt}\n\n${context}`;
     }
 
+    // For later chunks, summarize context to save tokens
+    const processedContext =
+      chunkIndex > 0
+        ? this.summarizeContext(context, CONTEXT_CONFIG.MAX_CONTEXT_SIZE / 2)
+        : context;
+
     return `${basePrompt}
 
 **CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
-**PROJECT CONTEXT:** ${context}
+**PROJECT CONTEXT:** ${processedContext}
 
 **INSTRUCTIONS:** 
 - Review this specific portion of the code changes
@@ -31506,15 +31716,23 @@ class LLMService {
   /**
    * Create optimized prompt for chunk processing with context
    */
-  createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles = []) {
+  async createChunkPrompt(
+    prompt,
+    chunkIndex,
+    totalChunks,
+    changedFiles = [],
+    sharedContext = null
+  ) {
+    // Use shared context if provided, otherwise generate new one
+    const context =
+      sharedContext || (await this.contextService.getComprehensiveContext(changedFiles));
+
     if (totalChunks === 1) {
       // For single chunk, include full context
-      const context = this.contextService.getComprehensiveContext(changedFiles);
       return `${prompt}\n\n${context}`;
     }
 
     // For multiple chunks, include project context
-    const context = this.contextService.getComprehensiveContext(changedFiles);
     return this.contextService.getContextAwareChunkPrompt(prompt, chunkIndex, totalChunks, context);
   }
 
@@ -31524,6 +31742,21 @@ class LLMService {
   async processChunksIntelligently(prompt, chunks, changedFiles = []) {
     const results = [];
 
+    // Generate context once and share across all chunks
+    let sharedContext = null;
+    if (chunks.length > 1) {
+      core.info('🔄 Generating shared context for all chunks...');
+      // Estimate total tokens for all chunks to calculate dynamic context size
+      const totalEstimatedTokens = chunks.reduce(
+        (sum, chunk) => sum + this.estimateTokenCount(prompt, chunk),
+        0
+      );
+      sharedContext = await this.contextService.getComprehensiveContext(
+        changedFiles,
+        totalEstimatedTokens
+      );
+    }
+
     if (chunks.length <= 3) {
       // For small numbers, process sequentially with delays
       core.info(`📦 Processing ${chunks.length} chunks sequentially (small batch)`);
@@ -31531,7 +31764,14 @@ class LLMService {
       for (let i = 0; i < chunks.length; i++) {
         core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
 
-        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length, changedFiles);
+        const result = await this.callLLMChunk(
+          prompt,
+          chunks[i],
+          i,
+          chunks.length,
+          changedFiles,
+          sharedContext
+        );
         results.push(result);
 
         if (i + 1 < chunks.length) {
@@ -31549,7 +31789,14 @@ class LLMService {
       for (let i = 0; i < chunks.length; i += maxConcurrent) {
         const batch = chunks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map((chunk, batchIndex) =>
-          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length, changedFiles)
+          this.callLLMChunk(
+            prompt,
+            chunk,
+            i + batchIndex,
+            chunks.length,
+            changedFiles,
+            sharedContext
+          )
         );
 
         const batchResults = await Promise.all(batchPromises);
@@ -31634,7 +31881,14 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API for a single chunk with improved error handling and retry logic
    */
-  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks, changedFiles = []) {
+  async callLLMChunk(
+    prompt,
+    diffChunk,
+    chunkIndex,
+    totalChunks,
+    changedFiles = [],
+    sharedContext = null
+  ) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
 
@@ -31663,7 +31917,13 @@ This chunk was too large to process completely. Here's a summary of what was det
         }
 
         // Create chunk-specific prompt with better context
-        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks, changedFiles);
+        const chunkPrompt = await this.createChunkPrompt(
+          prompt,
+          chunkIndex,
+          totalChunks,
+          changedFiles,
+          sharedContext
+        );
 
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
@@ -31771,7 +32031,7 @@ This chunk was too large to process completely. Here's a summary of what was det
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1, []);
+        return await this.callLLMChunk(prompt, diff, 0, 1, [], null);
       }
 
       // Split diff into chunks with intelligent sizing
