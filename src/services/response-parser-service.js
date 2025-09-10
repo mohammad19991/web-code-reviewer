@@ -20,6 +20,17 @@ class ResponseParserService {
     let jsonMatches = [];
     let failedChunks = 0;
 
+    // Check for potential truncation indicators
+    if (llmResponse && typeof llmResponse === 'string') {
+      const hasIncompleteJson = llmResponse.includes('<JSON>') && !llmResponse.includes('</JSON>');
+      const hasIncompleteSummary =
+        llmResponse.includes('<SUMMARY>') && !llmResponse.includes('</SUMMARY>');
+
+      if (hasIncompleteJson || hasIncompleteSummary) {
+        core.warning('⚠️  Detected potentially truncated LLM response - missing closing tags');
+      }
+    }
+
     try {
       // Try to extract JSON from the new XML-style format first
       jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];

@@ -10,7 +10,7 @@ const CORE_CONFIG = {
   DEFAULT_LANGUAGE: 'js',
 
   // LLM settings
-  MAX_TOKENS: 3000,
+  MAX_TOKENS: 8000, // Increased to handle comprehensive code reviews with multiple issues
   TEMPERATURE: 0, // Optimal for consistent analytical responses
 
   // File filtering
