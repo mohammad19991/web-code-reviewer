@@ -30,6 +30,8 @@ ${LANGUAGE_SPECIFIC_CHECKS[language]}
 
 ${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
 
+${SHARED_PROMPT_COMPONENTS.confidenceAndEvidenceStrength}
+
 ${SHARED_PROMPT_COMPONENTS.finalPolicy}
 
 ${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}

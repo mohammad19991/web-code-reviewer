@@ -30366,6 +30366,8 @@ ${LANGUAGE_SPECIFIC_CHECKS[language]}
 
 ${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
 
+${SHARED_PROMPT_COMPONENTS.confidenceAndEvidenceStrength}
+
 ${SHARED_PROMPT_COMPONENTS.finalPolicy}
 
 ${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}
@@ -30423,63 +30425,130 @@ const QA_CRITICAL_OVERRIDES = {
  */
 
 const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-critical overrides (regardless of score)
-- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
-- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
-- window.postMessage with "*" targetOrigin or without strict origin checks.
-- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
-- Dynamic code execution with untrusted input (eval, new Function, VM).
-- Secrets/credentials/API tokens embedded in client code or shipped to browser.
-- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
-- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
-- URL.createObjectURL used with untrusted blobs without revocation/validation.
-- Missing CSRF protection on same-origin state-changing fetch/XHR.
-- XSS via unescaped user input rendered into the DOM/HTML.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_key, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+  js: `Auto-Critical Overrides — regardless of score
+Policy:
+- Directly observed + prod-reachable = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- If clearly dev/test-only or unreachable in prod = downgrade to "suggestion", evidence_strength≤2, confidence≤0.5, prefix fix_code_patch with "// approximate" if anchoring is uncertain.
+- Always anchor a ≤12-line snippet including the risky sink and input. Use post-patch line numbers; if only diff hunk is known, lower evidence/confidence.
+
+Auto-critical items:
+- Unescaped user input into dangerous DOM sinks: innerHTML, outerHTML, document.write, eval, Function, setTimeout/setInterval(string). Fix: safe DOM APIs, sanitization, templating.
+- Direct database queries without parameterization. Fix: parameterized queries, prepared statements, ORM builders.
+- Missing authentication/authorization checks in API routes or sensitive ops. Fix: explicit auth guard, RBAC/ABAC.
+- Hardcoded secrets, API keys, or credentials in source. Fix: remove from code, load via env/secret manager, rotate keys.
+- Unsafe deserialization of user data (JSON.parse untrusted, unsafe libs). Fix: schema validation, safe parser.
+- Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
+- Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
+
+Evidence defaults:
+- Direct untrusted sink: evidence_strength=5, confidence=0.9.
+- Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
+- Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- DOM injection: "<script>alert(1)</script>" is not executed.
+- SQL injection: "' OR 1=1 --" does not alter query.
+- Auth: unauthorized /admin returns 401/403.
+- Secrets: no apiKey in build artifacts.
+- Prototype pollution: "__proto__" input does not mutate Object prototype.
+- Logging: prod build has no raw console.log(userData).
 `,
 
-  python: `Auto-critical overrides (regardless of score)
-- eval/exec on user input.
-- pickle.load or yaml.load (unsafe Loader) on untrusted data.
-- subprocess/os.system with shell=True and untrusted input (command injection).
-- SQL composed with f-strings/%/.format (no parameterization).
-- requests/urllib with SSL verification disabled (verify=False).
-- DEBUG=True or template autoescape disabled in production.
-- Jinja2/Django template injection via unescaped user input.
-- CSRF disabled/missing for state-changing endpoints (web apps).
-- Path traversal in file I/O without canonicalization/validation.
-- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
+  python: `Auto-critical Overrides — regardless of score
+Policy:
+- If directly observed and reachable in production: severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- If clearly dev/test-only or guarded and unreachable in prod: downgrade to "suggestion", set evidence_strength≤2 and confidence≤0.5, and prefix fix_code_patch with "// approximate" if anchoring is uncertain.
+- Always anchor with a ≤12-line snippet including the risky call (and tainted source if applicable); use post-patch line numbers. If only a diff hunk is known, also cap evidence_strength≤2 and confidence≤0.5. Deduplicate via "occurrences".
 
-  java: `Auto-critical overrides (regardless of score)
-- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
-- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
-- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
-- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
-- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
-- Path traversal in file I/O without canonicalization/checks.
-- Command injection via shell calls / native processes from user input.
-- XSS/HTML injection in server-side rendered responses due to missing escaping.
-- CSRF disabled for state-changing endpoints without compensating controls.
-- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
-- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+Auto-critical items (with anchors & fixes):
+- eval/exec on user input → Anchor: eval/exec call. Fix: remove dynamic eval; use safe parser/dispatch map.
+- pickle.load or unsafe yaml.load on untrusted data → Anchor: call site. Fix: yaml.safe_load; avoid pickle for untrusted inputs.
+- subprocess/os.system with shell=True + untrusted input → Anchor: call site. Fix: list args, shell=False, validate inputs.
+- Raw SQL via f-strings/%/.format (no params) → Anchor: execute call. Fix: parameterized queries/placeholders.
+- HTTP verify=False (requests/urllib) → Anchor: call site. Fix: verify TLS; pin cert/CA; guard dev-only.
+- DEBUG=True or template autoescape disabled in prod → Anchor: settings/config. Fix: DEBUG=False; enable autoescape.
+- Template injection (unescaped user input) → Anchor: render_template/context. Fix: rely on autoescape; sanitize/escape.
+- CSRF disabled/missing on state-changing routes → Anchor: exempt/setting. Fix: enable CSRF tokens/policy.
+- Path traversal in file I/O → Anchor: path build + open/remove. Fix: canonicalize/resolve + allow-list base dir.
+- Weak crypto (MD5/SHA1 passwords, DES/ECB) or hardcoded keys → Anchor: hash/crypto call or literal key. Fix: modern KDF/algos; move secrets to env/secret store.
+- Embedded API keys/secrets in code (api_key, access_token, client_secret, private_key, etc.) → Anchor: literal. Fix: remove/rotate; use secrets manager.
+- Unbounded threads/async tasks/loops (leak/DoS) → Anchor: creation loop, infinite loop, unbounded queue. Fix: bounded pools/sem, joins/cancellation, backpressure.
+
+Defaults:
+- Direct & prod-reachable: evidence_strength=4 (5 if crystal-clear), confidence=0.8–0.9.
+- Guarded or uncertain: evidence_strength≤2, confidence≤0.5.
+
+Tests (≤2 lines examples):
+- eval/exec: malicious string is rejected.
+- SQL: "' OR 1=1 --" does not alter results (params used).
+- TLS: MITM with untrusted CA fails (verify=True).
+- Path traversal: "../../etc/passwd" rejected; path resolved inside base.`,
+
+  java: `Auto-Critical Overrides — regardless of score
+Policy:
+- Directly observed + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Dev/test-only or unreachable in prod => suggestion, evidence_strength≤2, confidence≤0.5, prefix patch with "// approximate" if anchoring uncertain.
+- Always anchor ≤12-line snippet with risky sink and tainted input when possible. Use post-patch line numbers; if only diff hunk known, lower evidence/confidence.
+
+Auto-critical items:
+- SQL injection via string concatenation in Statement/native queries. Fix: PreparedStatement/ORM parameters.
+- Command injection via Runtime.exec/ProcessBuilder with untrusted strings. Fix: arg lists, allowlists, no shell.
+- Unsafe deserialization of untrusted data (ObjectInputStream, unsafe Jackson settings). Fix: avoid Java serialization; strict schema; ObjectInputFilter.
+- XSS: unescaped user input in JSP/Thymeleaf/FreeMarker/HTML. Fix: auto-escape/encoders.
+- Missing authentication/authorization on sensitive endpoints. Fix: Spring Security guards (RBAC/ABAC).
+- CSRF disabled/missing for state-changing endpoints. Fix: enable CSRF tokens.
+- Insecure TLS/hostname verification (trust-all). Fix: proper trust store + hostname verification.
+- Hardcoded secrets/API keys/credentials in code. Fix: externalize to secrets manager; rotate.
+- Path traversal in file I/O without canonicalization/allowlist. Fix: canonicalize + enforce base dir.
+- Insecure crypto (MD5/SHA1, AES/ECB, weak RNG). Fix: modern KDF; AES-GCM; secure RNG.
+- Template injection by interpreting untrusted expressions. Fix: sandbox/disable expression eval.
+- Unbounded thread pools/schedulers causing DoS. Fix: bounded pools, queue limits, backpressure, shutdown.
+
+Evidence defaults:
+- Direct & prod-reachable: evidence_strength=5, confidence=0.9 (or 4/0.8).
+- Guarded/unclear: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines):
+- SQLi: "' OR 1=1 --" inert with params.
+- Command: untrusted arg not executed.
+- XSS: "<script>" inert.
+- Auth: unauthorized -> 401/403.
+- TLS: MITM with untrusted CA fails.
+- Path traversal: "../../etc/passwd" rejected.
 `,
 
-  php: `Auto-critical overrides (regardless of score)
-- eval/assert/create_function on user input.
-- File inclusion from user-controlled input (include/require with tainted path).
-- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
-- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
-- Passwords hashed with md5/sha1 (use password_hash/password_verify).
-- Exposing phpinfo or debug toolbars in production.
-- Command injection via shell_exec/system/passthru with untrusted input.
-- XSS via unescaped user input in templates (echo/print) or legacy engines.
-- CSRF middleware disabled or missing on state-changing routes.
-- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
-- Path traversal in file operations without sanitization.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+  php: `Auto-Critical Overrides — regardless of score
+Policy:
+- Direct + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Dev/test-only or unreachable => suggestion with evidence_strength≤2, confidence≤0.5; prefix patch with "// approximate" if uncertain.
+- Always anchor ≤12-line snippet with risky sink and tainted input. Use post-patch line numbers; if only diff hunk, lower evidence/confidence. Deduplicate via "occurrences".
+
+Auto-critical items:
+- SQL injection via string interpolation/concatenation (PDO/mysqli). Fix: prepared statements with bound params.
+- Command injection (exec/shell_exec/passthru/backticks) using untrusted input. Fix: avoid shell; allowlists; native APIs.
+- XSS: unescaped user data echoed into HTML/JS. Fix: htmlspecialchars/Twig auto-escape.
+- File inclusion (RFI/LFI) from user input. Fix: strict allowlists; no dynamic includes.
+- Path traversal in file I/O. Fix: realpath/canonicalize + base dir allowlist.
+- Insecure deserialization via unserialize on untrusted input. Fix: avoid; use JSON + schema.
+- CSRF missing on state-changing routes. Fix: CSRF tokens/middleware.
+- Weak password hashing/crypto (md5/sha1, mcrypt ECB). Fix: password_hash (Bcrypt/Argon2), libsodium.
+- Hardcoded secrets/API keys/credentials in code. Fix: env/secret manager; rotate keys.
+- Open redirects using unvalidated user-controlled URLs. Fix: allowlist domains/paths.
+- TLS verification disabled in cURL. Fix: enable verify; pin CA/certs if needed.
+- Session fixation/misconfig (no regenerate on login; insecure cookie flags). Fix: regenerate ID; secure/httponly cookies.
+- Unbounded processes/loops causing DoS. Fix: resource/time bounds, backpressure.
+
+Evidence defaults:
+- Direct & prod-reachable: evidence_strength=5, confidence=0.9 (or 4/0.8).
+- Guarded/unclear: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines):
+- SQLi: "' OR 1=1 --" inert with prepared statements.
+- Command: untrusted input not executed.
+- XSS: "<script>" inert in output.
+- CSRF: missing token -> 403/validation error.
+- TLS: cURL with untrusted CA fails when verification on.
+- Path traversal: "../../etc/passwd" rejected.
 `,
 
   qa_web: QA_CRITICAL_OVERRIDES.qa,
@@ -30532,31 +30601,135 @@ const QA_SPECIFIC_CHECKS = {
  */
 
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript checks (only if visible in diff)
-- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
-- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
-- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
-- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
-- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
-- Accessibility: only flag as "critical" if it blocks core flows.`,
+  js: `JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
+React:
+- Unstable hook deps (useEffect/useMemo/useCallback) when deps omit referenced vars or include unstable inline values. Anchor hook + deps. Default: evidence_strength=3, confidence=0.7.
+- Heavy work in render (expensive ops in component/JSX). Anchor call chain. Default: 3, 0.7 (cap to 2, 0.5 if data size unknown).
+- Missing cleanup in useEffect for subscriptions/timers/sockets. Anchor effect body; Default: 4, 0.8.
+- dangerouslySetInnerHTML: user-controlled → auto-critical (security); static → suggestion.
+- Index-as-key in dynamic lists. Anchor JSX key; Default: 2, 0.5.
+- Un-memoized context values/expensive props passed deep; consider useMemo/useCallback. Default: 2–3, 0.5–0.7.
+- Consider React.lazy/Suspense for clearly large modules.
 
-  python: `Python-specific checks (only if visible in diff)
-- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
-- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
-- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
-- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
+TypeScript:
+- any/unknown leakage across module boundaries (exports). Anchor export signature. Default: 3, 0.7.
+- Unsafe narrowing/non-null (!) where undefined is possible. Default: 3, 0.7.
+- Ambient/global type mutations widening types. Default: 3, 0.6.
 
-  java: `Java-specific checks (only if visible in diff)
-- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
-- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
-- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
-- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
+Fetch/IO:
+- Missing AbortController/timeout on fetch/axios; no cancellation for long-lived calls. Default: 3, 0.7.
+- No retry/backoff for critical idempotent calls. Default: 2, 0.5.
+- Leaking subscriptions/websockets or unbounded setInterval. Default: 4, 0.8 if no cleanup.
+- URL.createObjectURL without revokeObjectURL. Default: 3, 0.7.
 
-  php: `PHP-specific checks (only if visible in diff)
-- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
-- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
-- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
-- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
+Performance:
+- N+1 renders/effects (loop-triggered state/effects). Default: 2–3, 0.5–0.7.
+- O(n^2) work in render over props/state. Default: 3, 0.7.
+- Large lists without virtualization when clearly large. Default: 2, 0.5.
+
+Security (additional):
+- User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
+- Tokens stored in localStorage/sessionStorage → auto-critical unless strong mitigations. Anchor storage write. Default: 4–5, 0.8.
+- URL.createObjectURL used with untrusted blobs without checks. Default: 3, 0.6.
+
+Accessibility:
+- Only mark critical if core flows are blocked; otherwise suggestion with evidence_strength ≤ 2.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  python: `Python-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+
+Performance:
+- Whole-dataset loads: pandas/json/db result sets fully materialized where streaming/chunking is feasible. Default evidence=3, confidence=0.7.
+- Blocking I/O in async: requests/file/db sync calls inside async def. Default 4, 0.8.
+- Unbounded recursion on large inputs. Default 3, 0.7.
+- Global caches without eviction (LRU maxsize=None, custom caches). Default 3, 0.7.
+
+Maintainability:
+- Circular imports / tight coupling across changed modules. Default 3, 0.6.
+- Monolithic scripts accumulating unrelated concerns. Default 2, 0.5.
+- Bare except / broad except without re-raise or logging. Default 3, 0.7.
+- Mutable default arguments (def f(x=[], y={})). Default 4, 0.8.
+
+Best practices:
+- Missing context managers (with open/socket/lock). Default 4, 0.8 if leaks likely.
+- requests without timeout / no retry/backoff for critical idempotent calls. Default 3, 0.7.
+- Weak logging / no redaction of secrets/PII. Default 4, 0.8.
+- Globals shared in concurrency without locks/async primitives. Default 3, 0.7.
+
+Concurrency & Async:
+- Thread/task leaks (no join/cancel), unbounded executors. Default 4, 0.8.
+- Blocking calls (time.sleep/CPU loops) inside async def without executor. Default 4, 0.8.
+
+Web (Django/Flask/FastAPI):
+- CSRF disabled/missing on state-changing routes → auto-critical.
+- debug=True in production paths/config → auto-critical if unguarded.
+- Open CORS (*) with credentials → 4, 0.8 (critical if prod).
+- Template autoescape disabled → auto-critical.
+- Unsanitized input passed to render_template/context → critical if taint is clear.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  java: `Java Language-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+  
+Performance:
+- N+1 queries / queries in loops. Anchor loop + query. Default 4,0.8.
+- O(n^2) hot paths in request/critical code. Anchor nested loops. Default 3,0.7.
+- Blocking I/O without timeouts/retries. Anchor client call. Default 3,0.7.
+- Inefficient collections/boxing; String concat in loops. Anchor site. Default 2–3,0.6–0.7.
+- Whole-object loads vs streaming. Anchor repo/service call. Default 3,0.6.
+
+Maintainability:
+- Bare catch(Exception)/swallow. Anchor try/catch. Default 3,0.7.
+- Missing try-with-resources (leaks). Anchor resource acquisition. Default 4,0.8.
+- Cyclic deps/god classes. Anchor imports/large class. Default 2,0.5.
+- Ignoring InterruptedException. Anchor catch block. Default 3,0.7.
+- equals/hashCode contract issues. Anchor methods. Default 3,0.7.
+
+Best practices:
+- Missing Bean Validation on DTO/controller params. Anchor annotations/sigs. Default 3,0.7.
+- Null handling/Optional misuse. Anchor method sigs. Default 2,0.6.
+- Concurrency misuse (unsafe publish, non-threadsafe collections). Anchor shared field + access. Default 4,0.8.
+- Streams misuse in hot paths. Anchor pipeline. Default 2–3,0.6–0.7.
+
+Web (Spring/Jakarta):
+- Open CORS (* with credentials). Anchor CORS config. Default 3,0.7.
+- Missing @Transactional around multi-step DB ops. Anchor service method. Default 3,0.7.
+- Exception leakage (no ControllerAdvice). Anchor config. Default 3,0.7.
+- HTTP clients without timeouts/backoff. Anchor builder. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  php: `PHP Language-Specific Checks
+
+Performance:
+- N+1: queries in loops. Anchor loop + query. Default 4,0.8.
+- Expensive ops in request path (large arrays, heavy regex, repeated json_encode). Anchor site. Default 3,0.7.
+- Unbounded output buffering. Anchor buffering usage. Default 2,0.6.
+
+Maintainability:
+- Mixed concerns/monolithic scripts. Anchor sections. Default 2,0.5.
+- Broad catch/silent errors; error suppression with "@". Anchor site. Default 3,0.7.
+- Global state across modules/superglobals. Anchor usage. Default 3,0.7.
+- Missing param/return types in modern PHP. Anchor function sigs. Default 2–3,0.6–0.7.
+
+Best practices:
+- Missing declare(strict_types=1) where standard applies. Anchor header. Default 2,0.6.
+- Loose comparisons (==) in sensitive contexts. Anchor comparison. Default 3,0.7.
+- include/require without checks vs Composer autoload. Anchor include. Default 2,0.5.
+- HTTP clients without timeouts/backoff. Anchor options. Default 3,0.7.
+- Logging PII/secrets without redaction. Anchor logger. Default 4,0.8.
+
+Web (Laravel/Symfony/Vanilla):
+- Missing validation for user input (FormRequest/Validator). Anchor controller. Default 3,0.7.
+- Mass assignment via Model::create($request->all()) without $fillable. Anchor model usage. Default 3,0.7.
+- display_errors/Debug enabled in prod. Anchor config. Default 3,0.7.
+- Session/cookie flags (secure/httponly/samesite) missing. Anchor config. Default 3,0.7.
+- File uploads missing validation or stored under webroot. Anchor handler. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
   qa_web: QA_SPECIFIC_CHECKS.qa,
   qa_android: QA_SPECIFIC_CHECKS.qa,
@@ -30584,56 +30757,65 @@ You are a senior ${role} (10+ years) reviewing only the provided diff/files for 
   detrminismAndOutputContract: `
 Determinism & Output Contract
 - Return EXACTLY two parts, in this order, with no extra prose:
-  1) <JSON>…valid single JSON object…</JSON>
-  2) <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
-- Do NOT wrap JSON in markdown/code fences. No commentary outside these tags.
-- If the JSON would be invalid, immediately re-emit a corrected JSON object (no explanations).
-- Maximum 10 issues. Sort by severity_score (desc). Use 1-based, inclusive line numbers. Round severity_score to 2 decimals.
-- CRITICAL: Be deterministic. For identical code inputs, produce identical outputs.
-- Use consistent issue IDs: SEC-01, SEC-02, PERF-01, PERF-02, MAINT-01, MAINT-02, BEST-01, BEST-02.
-- Apply the same severity scoring algorithm consistently across all issues.
-- ALWAYS mark API keys, secrets, or credentials as CRITICAL regardless of other factors.
-- IMPORTANT: Always analyze the code thoroughly and report any issues found. Do not skip analysis.
+  1. <JSON>…valid single JSON object…</JSON>
+  2. <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
+- Do NOT wrap JSON in markdown code fences. No commentary outside these tags.
+- Maximum 10 issues. Sort by severity_score (desc).
+- Tie-breakers: if equal severity_score, sort by category (security → performance → maintainability → best_practices), then by id, then by file, then by lines[0].
+- Round severity_score to 2 decimals using fixed-point rounding.
+- Deterministic: identical inputs must always produce identical outputs.
 `,
 
   // Common scope and exclusions
-  scopeAndExclusions: `Scope & Exclusions (very important)
+  scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
-- Ignore style/formatting/naming/import order/linters/auto-formatters and non-material preferences.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence; mark as "suggestion".`,
+- Ignore style/formatting/naming/import order/linters/auto-formatters.
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
 
   // Common severity scoring
-  severityScoring: `Severity Scoring (mandatory)
-For EACH issue, assign 0–5 scores using these EXACT criteria:
-- impact: 0=none, 1=low, 2=medium, 3=high, 4=severe, 5=critical
-- exploitability: 0=impossible, 1=very hard, 2=hard, 3=moderate, 4=easy, 5=trivial
-- likelihood: 0=never, 1=rare, 2=unlikely, 3=possible, 4=likely, 5=certain
-- blast_radius: 0=none, 1=local, 2=component, 3=module, 4=system, 5=entire app
-- evidence_strength: 0=none, 1=weak, 2=moderate, 3=strong, 4=very strong, 5=conclusive
-
-Compute EXACTLY:
-severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
-
-Set severity_proposed using EXACT thresholds:
+  severityScoring: `Severity Scoring
+For EACH issue, assign 0–5 scores for: impact, exploitability, likelihood, blast_radius, evidence_strength.
+Compute: severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
+Set severity_proposed:
 - "critical" if severity_score ≥ 3.60 AND evidence_strength ≥ 3
-- otherwise "suggestion"
-
-Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").
-
-CRITICAL: Apply these exact same criteria and thresholds to identical code patterns.`,
+- Otherwise "suggestion"`,
 
   // Common evidence requirements
-  evidenceRequirements: `Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines [start,end], snippet (≤12 lines, must include the risky call/sink), why_it_matters (1 sentence), fix_summary (1–2 sentences), fix_code_patch (specific code changes), tests (brief regression test), confidence ∈ [0,1].
-- Deduplicate repeated patterns via "occurrences": array of {file, lines}.
-- If you cannot anchor an exact edit, prefix fix_code_patch with "// approximate", set evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+  evidenceRequirements: `Evidence & Remediation Requirements
+For EACH issue, provide:
+- id (SEC-01, PERF-01, MAINT-01, BEST-01, etc.)
+- category
+- severity_proposed
+- severity_score (rounded 2 decimals)
+- risk_factors: { impact, exploitability, likelihood, blast_radius, evidence_strength }
+- risk_factors_notes: one short anchor note for each factor
+- confidence ∈ [0,1]
+- file, lines [start,end]
+- snippet (≤12 lines including risky call/sink)
+- why_it_matters (1 sentence)
+- fix_summary (1–2 sentences)
+- fix_code_patch (concrete patch; prefix with // approximate if uncertain)
+- tests (≤2 lines Jest-style or pseudo)
+- occurrences (array of {file, lines})
+If a fix cannot be precisely anchored, mark evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+
+confidenceAndEvidenceStrength: `Confidence & Evidence Strength Rubric
+- Direct risky sink observed: evidence_strength = 4–5, confidence ≥ 0.8
+- Indirect/potential issue: evidence_strength = 2, confidence = 0.5
+- Cross-file assumptions: cap evidence_strength at 2 and confidence at 0.5`,
 
   // Common final policy
-  finalPolicy: `Final Policy
-- final_recommendation = "do_not_merge" if any issue is "critical" with confidence ≥ 0.6; else "safe_to_merge".`,
+  finalPolicy: `Final Recommendation
+- final_recommendation = "do_not_merge" if any issue is critical with confidence ≥ 0.6
+- Otherwise "safe_to_merge"`,
 
   // Common output format
-  outputFormat: (testExample, fileExample) => `Output Format
+  outputFormat: (testExample, fileExample) => `JSON Schema (strict)
+- category must be exactly one of: security, performance, maintainability, best_practices.
+- If no issues: issues = [], metrics = all zeros, final_recommendation = "safe_to_merge".
+- Always emit a 1–2 sentence summary in <SUMMARY>.
+
+Output Format
 Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summary inside <SUMMARY> … </SUMMARY>:
 
 <JSON>
@@ -30677,10 +30859,10 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
 </JSON>
 
 <SUMMARY>
-• 🔒 Security issues — short note
-• ⚡ Performance issues — short note
-• 🛠️ Maintainability issues — short note
-• 📚 Best Practices issues — short note
+• Overall assessment in 1–2 sentences
+• Key critical issues (if any)
+• Key suggestions (if any)
+• Final recommendation
 </SUMMARY>`,
 
   // Common context

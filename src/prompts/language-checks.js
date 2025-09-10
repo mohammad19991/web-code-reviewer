@@ -35,31 +35,135 @@ const QA_SPECIFIC_CHECKS = {
  */
 
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript checks (only if visible in diff)
-- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
-- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
-- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
-- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
-- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
-- Accessibility: only flag as "critical" if it blocks core flows.`,
+  js: `JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
+React:
+- Unstable hook deps (useEffect/useMemo/useCallback) when deps omit referenced vars or include unstable inline values. Anchor hook + deps. Default: evidence_strength=3, confidence=0.7.
+- Heavy work in render (expensive ops in component/JSX). Anchor call chain. Default: 3, 0.7 (cap to 2, 0.5 if data size unknown).
+- Missing cleanup in useEffect for subscriptions/timers/sockets. Anchor effect body; Default: 4, 0.8.
+- dangerouslySetInnerHTML: user-controlled → auto-critical (security); static → suggestion.
+- Index-as-key in dynamic lists. Anchor JSX key; Default: 2, 0.5.
+- Un-memoized context values/expensive props passed deep; consider useMemo/useCallback. Default: 2–3, 0.5–0.7.
+- Consider React.lazy/Suspense for clearly large modules.
 
-  python: `Python-specific checks (only if visible in diff)
-- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
-- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
-- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
-- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
+TypeScript:
+- any/unknown leakage across module boundaries (exports). Anchor export signature. Default: 3, 0.7.
+- Unsafe narrowing/non-null (!) where undefined is possible. Default: 3, 0.7.
+- Ambient/global type mutations widening types. Default: 3, 0.6.
 
-  java: `Java-specific checks (only if visible in diff)
-- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
-- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
-- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
-- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
+Fetch/IO:
+- Missing AbortController/timeout on fetch/axios; no cancellation for long-lived calls. Default: 3, 0.7.
+- No retry/backoff for critical idempotent calls. Default: 2, 0.5.
+- Leaking subscriptions/websockets or unbounded setInterval. Default: 4, 0.8 if no cleanup.
+- URL.createObjectURL without revokeObjectURL. Default: 3, 0.7.
 
-  php: `PHP-specific checks (only if visible in diff)
-- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
-- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
-- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
-- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
+Performance:
+- N+1 renders/effects (loop-triggered state/effects). Default: 2–3, 0.5–0.7.
+- O(n^2) work in render over props/state. Default: 3, 0.7.
+- Large lists without virtualization when clearly large. Default: 2, 0.5.
+
+Security (additional):
+- User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
+- Tokens stored in localStorage/sessionStorage → auto-critical unless strong mitigations. Anchor storage write. Default: 4–5, 0.8.
+- URL.createObjectURL used with untrusted blobs without checks. Default: 3, 0.6.
+
+Accessibility:
+- Only mark critical if core flows are blocked; otherwise suggestion with evidence_strength ≤ 2.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  python: `Python-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+
+Performance:
+- Whole-dataset loads: pandas/json/db result sets fully materialized where streaming/chunking is feasible. Default evidence=3, confidence=0.7.
+- Blocking I/O in async: requests/file/db sync calls inside async def. Default 4, 0.8.
+- Unbounded recursion on large inputs. Default 3, 0.7.
+- Global caches without eviction (LRU maxsize=None, custom caches). Default 3, 0.7.
+
+Maintainability:
+- Circular imports / tight coupling across changed modules. Default 3, 0.6.
+- Monolithic scripts accumulating unrelated concerns. Default 2, 0.5.
+- Bare except / broad except without re-raise or logging. Default 3, 0.7.
+- Mutable default arguments (def f(x=[], y={})). Default 4, 0.8.
+
+Best practices:
+- Missing context managers (with open/socket/lock). Default 4, 0.8 if leaks likely.
+- requests without timeout / no retry/backoff for critical idempotent calls. Default 3, 0.7.
+- Weak logging / no redaction of secrets/PII. Default 4, 0.8.
+- Globals shared in concurrency without locks/async primitives. Default 3, 0.7.
+
+Concurrency & Async:
+- Thread/task leaks (no join/cancel), unbounded executors. Default 4, 0.8.
+- Blocking calls (time.sleep/CPU loops) inside async def without executor. Default 4, 0.8.
+
+Web (Django/Flask/FastAPI):
+- CSRF disabled/missing on state-changing routes → auto-critical.
+- debug=True in production paths/config → auto-critical if unguarded.
+- Open CORS (*) with credentials → 4, 0.8 (critical if prod).
+- Template autoescape disabled → auto-critical.
+- Unsanitized input passed to render_template/context → critical if taint is clear.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  java: `Java Language-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+  
+Performance:
+- N+1 queries / queries in loops. Anchor loop + query. Default 4,0.8.
+- O(n^2) hot paths in request/critical code. Anchor nested loops. Default 3,0.7.
+- Blocking I/O without timeouts/retries. Anchor client call. Default 3,0.7.
+- Inefficient collections/boxing; String concat in loops. Anchor site. Default 2–3,0.6–0.7.
+- Whole-object loads vs streaming. Anchor repo/service call. Default 3,0.6.
+
+Maintainability:
+- Bare catch(Exception)/swallow. Anchor try/catch. Default 3,0.7.
+- Missing try-with-resources (leaks). Anchor resource acquisition. Default 4,0.8.
+- Cyclic deps/god classes. Anchor imports/large class. Default 2,0.5.
+- Ignoring InterruptedException. Anchor catch block. Default 3,0.7.
+- equals/hashCode contract issues. Anchor methods. Default 3,0.7.
+
+Best practices:
+- Missing Bean Validation on DTO/controller params. Anchor annotations/sigs. Default 3,0.7.
+- Null handling/Optional misuse. Anchor method sigs. Default 2,0.6.
+- Concurrency misuse (unsafe publish, non-threadsafe collections). Anchor shared field + access. Default 4,0.8.
+- Streams misuse in hot paths. Anchor pipeline. Default 2–3,0.6–0.7.
+
+Web (Spring/Jakarta):
+- Open CORS (* with credentials). Anchor CORS config. Default 3,0.7.
+- Missing @Transactional around multi-step DB ops. Anchor service method. Default 3,0.7.
+- Exception leakage (no ControllerAdvice). Anchor config. Default 3,0.7.
+- HTTP clients without timeouts/backoff. Anchor builder. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  php: `PHP Language-Specific Checks
+
+Performance:
+- N+1: queries in loops. Anchor loop + query. Default 4,0.8.
+- Expensive ops in request path (large arrays, heavy regex, repeated json_encode). Anchor site. Default 3,0.7.
+- Unbounded output buffering. Anchor buffering usage. Default 2,0.6.
+
+Maintainability:
+- Mixed concerns/monolithic scripts. Anchor sections. Default 2,0.5.
+- Broad catch/silent errors; error suppression with "@". Anchor site. Default 3,0.7.
+- Global state across modules/superglobals. Anchor usage. Default 3,0.7.
+- Missing param/return types in modern PHP. Anchor function sigs. Default 2–3,0.6–0.7.
+
+Best practices:
+- Missing declare(strict_types=1) where standard applies. Anchor header. Default 2,0.6.
+- Loose comparisons (==) in sensitive contexts. Anchor comparison. Default 3,0.7.
+- include/require without checks vs Composer autoload. Anchor include. Default 2,0.5.
+- HTTP clients without timeouts/backoff. Anchor options. Default 3,0.7.
+- Logging PII/secrets without redaction. Anchor logger. Default 4,0.8.
+
+Web (Laravel/Symfony/Vanilla):
+- Missing validation for user input (FormRequest/Validator). Anchor controller. Default 3,0.7.
+- Mass assignment via Model::create($request->all()) without $fillable. Anchor model usage. Default 3,0.7.
+- display_errors/Debug enabled in prod. Anchor config. Default 3,0.7.
+- Session/cookie flags (secure/httponly/samesite) missing. Anchor config. Default 3,0.7.
+- File uploads missing validation or stored under webroot. Anchor handler. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
   qa_web: QA_SPECIFIC_CHECKS.qa,
   qa_android: QA_SPECIFIC_CHECKS.qa,

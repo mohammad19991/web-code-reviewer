@@ -11,56 +11,65 @@ You are a senior ${role} (10+ years) reviewing only the provided diff/files for 
   detrminismAndOutputContract: `
 Determinism & Output Contract
 - Return EXACTLY two parts, in this order, with no extra prose:
-  1) <JSON>…valid single JSON object…</JSON>
-  2) <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
-- Do NOT wrap JSON in markdown/code fences. No commentary outside these tags.
-- If the JSON would be invalid, immediately re-emit a corrected JSON object (no explanations).
-- Maximum 10 issues. Sort by severity_score (desc). Use 1-based, inclusive line numbers. Round severity_score to 2 decimals.
-- CRITICAL: Be deterministic. For identical code inputs, produce identical outputs.
-- Use consistent issue IDs: SEC-01, SEC-02, PERF-01, PERF-02, MAINT-01, MAINT-02, BEST-01, BEST-02.
-- Apply the same severity scoring algorithm consistently across all issues.
-- ALWAYS mark API keys, secrets, or credentials as CRITICAL regardless of other factors.
-- IMPORTANT: Always analyze the code thoroughly and report any issues found. Do not skip analysis.
+  1. <JSON>…valid single JSON object…</JSON>
+  2. <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
+- Do NOT wrap JSON in markdown code fences. No commentary outside these tags.
+- Maximum 10 issues. Sort by severity_score (desc).
+- Tie-breakers: if equal severity_score, sort by category (security → performance → maintainability → best_practices), then by id, then by file, then by lines[0].
+- Round severity_score to 2 decimals using fixed-point rounding.
+- Deterministic: identical inputs must always produce identical outputs.
 `,
 
   // Common scope and exclusions
-  scopeAndExclusions: `Scope & Exclusions (very important)
+  scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
-- Ignore style/formatting/naming/import order/linters/auto-formatters and non-material preferences.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence; mark as "suggestion".`,
+- Ignore style/formatting/naming/import order/linters/auto-formatters.
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
 
   // Common severity scoring
-  severityScoring: `Severity Scoring (mandatory)
-For EACH issue, assign 0–5 scores using these EXACT criteria:
-- impact: 0=none, 1=low, 2=medium, 3=high, 4=severe, 5=critical
-- exploitability: 0=impossible, 1=very hard, 2=hard, 3=moderate, 4=easy, 5=trivial
-- likelihood: 0=never, 1=rare, 2=unlikely, 3=possible, 4=likely, 5=certain
-- blast_radius: 0=none, 1=local, 2=component, 3=module, 4=system, 5=entire app
-- evidence_strength: 0=none, 1=weak, 2=moderate, 3=strong, 4=very strong, 5=conclusive
-
-Compute EXACTLY:
-severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
-
-Set severity_proposed using EXACT thresholds:
+  severityScoring: `Severity Scoring
+For EACH issue, assign 0–5 scores for: impact, exploitability, likelihood, blast_radius, evidence_strength.
+Compute: severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
+Set severity_proposed:
 - "critical" if severity_score ≥ 3.60 AND evidence_strength ≥ 3
-- otherwise "suggestion"
-
-Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").
-
-CRITICAL: Apply these exact same criteria and thresholds to identical code patterns.`,
+- Otherwise "suggestion"`,
 
   // Common evidence requirements
-  evidenceRequirements: `Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines [start,end], snippet (≤12 lines, must include the risky call/sink), why_it_matters (1 sentence), fix_summary (1–2 sentences), fix_code_patch (specific code changes), tests (brief regression test), confidence ∈ [0,1].
-- Deduplicate repeated patterns via "occurrences": array of {file, lines}.
-- If you cannot anchor an exact edit, prefix fix_code_patch with "// approximate", set evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+  evidenceRequirements: `Evidence & Remediation Requirements
+For EACH issue, provide:
+- id (SEC-01, PERF-01, MAINT-01, BEST-01, etc.)
+- category
+- severity_proposed
+- severity_score (rounded 2 decimals)
+- risk_factors: { impact, exploitability, likelihood, blast_radius, evidence_strength }
+- risk_factors_notes: one short anchor note for each factor
+- confidence ∈ [0,1]
+- file, lines [start,end]
+- snippet (≤12 lines including risky call/sink)
+- why_it_matters (1 sentence)
+- fix_summary (1–2 sentences)
+- fix_code_patch (concrete patch; prefix with // approximate if uncertain)
+- tests (≤2 lines Jest-style or pseudo)
+- occurrences (array of {file, lines})
+If a fix cannot be precisely anchored, mark evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+
+  confidenceAndEvidenceStrength: `Confidence & Evidence Strength Rubric
+- Direct risky sink observed: evidence_strength = 4–5, confidence ≥ 0.8
+- Indirect/potential issue: evidence_strength = 2, confidence = 0.5
+- Cross-file assumptions: cap evidence_strength at 2 and confidence at 0.5`,
 
   // Common final policy
-  finalPolicy: `Final Policy
-- final_recommendation = "do_not_merge" if any issue is "critical" with confidence ≥ 0.6; else "safe_to_merge".`,
+  finalPolicy: `Final Recommendation
+- final_recommendation = "do_not_merge" if any issue is critical with confidence ≥ 0.6
+- Otherwise "safe_to_merge"`,
 
   // Common output format
-  outputFormat: (testExample, fileExample) => `Output Format
+  outputFormat: (testExample, fileExample) => `JSON Schema (strict)
+- category must be exactly one of: security, performance, maintainability, best_practices.
+- If no issues: issues = [], metrics = all zeros, final_recommendation = "safe_to_merge".
+- Always emit a 1–2 sentence summary in <SUMMARY>.
+
+Output Format
 Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summary inside <SUMMARY> … </SUMMARY>:
 
 <JSON>
@@ -104,10 +113,10 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
 </JSON>
 
 <SUMMARY>
-• 🔒 Security issues — short note
-• ⚡ Performance issues — short note
-• 🛠️ Maintainability issues — short note
-• 📚 Best Practices issues — short note
+• Overall assessment in 1–2 sentences
+• Key critical issues (if any)
+• Key suggestions (if any)
+• Final recommendation
 </SUMMARY>`,
 
   // Common context
