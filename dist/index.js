@@ -29988,7 +29988,7 @@ const CORE_CONFIG = {
   DEFAULT_LANGUAGE: 'js',
 
   // LLM settings
-  MAX_TOKENS: 3000,
+  MAX_TOKENS: 8000, // Increased to handle comprehensive code reviews with multiple issues
   TEMPERATURE: 0, // Optimal for consistent analytical responses
 
   // File filtering
@@ -32354,6 +32354,11 @@ This chunk was too large to process completely. Here's a summary of what was det
           );
         }
 
+        // Log token usage for monitoring
+        core.info(
+          `📊 Token Usage - Input: ~${estimatedTokens}, Output Limit: ${this.maxTokens}, Provider: ${this.provider.toUpperCase()}`
+        );
+
         // Create chunk-specific prompt with better context
         const chunkPrompt = await this.createChunkPrompt(
           prompt,
@@ -32420,9 +32425,25 @@ This chunk was too large to process completely. Here's a summary of what was det
           throw new Error(`Empty or invalid response from ${this.provider.toUpperCase()} API`);
         }
 
+        // Monitor response length to detect potential truncation
+        const responseLength = result.length;
+        const estimatedResponseTokens = Math.round(responseLength / 4); // Rough estimation
+        const tokenUsagePercent = Math.round((estimatedResponseTokens / this.maxTokens) * 100);
+
         core.info(
-          `✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${result.length} chars)`
+          `✅ Received valid response for chunk ${chunkIndex + 1}/${totalChunks} (${responseLength} chars)`
         );
+        core.info(
+          `📊 Response Stats - Est. Tokens: ~${estimatedResponseTokens}, Usage: ${tokenUsagePercent}% of limit`
+        );
+
+        // Warn if response might be truncated
+        if (tokenUsagePercent > 90) {
+          core.warning(
+            `⚠️  Response may be truncated - using ${tokenUsagePercent}% of token limit`
+          );
+        }
+
         return result;
       } catch (error) {
         if (error.message.includes('Cannot find module') || error.message.includes('node-fetch')) {
@@ -32854,6 +32875,17 @@ class ResponseParserService {
     let totalSuggestionCount = 0;
     let jsonMatches = [];
     let failedChunks = 0;
+
+    // Check for potential truncation indicators
+    if (llmResponse && typeof llmResponse === 'string') {
+      const hasIncompleteJson = llmResponse.includes('<JSON>') && !llmResponse.includes('</JSON>');
+      const hasIncompleteSummary =
+        llmResponse.includes('<SUMMARY>') && !llmResponse.includes('</SUMMARY>');
+
+      if (hasIncompleteJson || hasIncompleteSummary) {
+        core.warning('⚠️  Detected potentially truncated LLM response - missing closing tags');
+      }
+    }
 
     try {
       // Try to extract JSON from the new XML-style format first
