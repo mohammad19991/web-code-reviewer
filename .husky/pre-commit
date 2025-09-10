@@ -13,6 +13,6 @@ npm run format:check
 
 # Run tests
 echo "🧪 Running tests..."
-npm run test:unit
+npm run test
 
 echo "✅ Pre-commit checks passed!"
