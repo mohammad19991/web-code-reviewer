@@ -58,7 +58,7 @@ describe('Prompts Module Tests', () => {
       expect(prompt).toContain('Role & Goal');
       expect(prompt).toContain('Determinism & Output Contract');
       expect(prompt).toContain('Severity Scoring');
-      expect(prompt).toContain('Evidence Requirements');
+      expect(prompt).toContain('Evidence & Remediation Requirements');
       expect(prompt).toContain('Output Format');
       expect(prompt).toContain('Context: Here are the code changes');
     });
@@ -91,7 +91,7 @@ describe('Prompts Module Tests', () => {
         expect(prompt).toContain('Role & Goal');
         expect(prompt).toContain('Determinism & Output Contract');
         expect(prompt).toContain('Severity Scoring');
-        expect(prompt).toContain('Evidence Requirements');
+        expect(prompt).toContain('Evidence & Remediation Requirements');
         expect(prompt).toContain('Output Format');
       });
     });

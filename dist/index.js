@@ -30799,7 +30799,7 @@ For EACH issue, provide:
 - occurrences (array of {file, lines})
 If a fix cannot be precisely anchored, mark evidence_strength ≤ 2 and confidence ≤ 0.5.`,
 
-confidenceAndEvidenceStrength: `Confidence & Evidence Strength Rubric
+  confidenceAndEvidenceStrength: `Confidence & Evidence Strength Rubric
 - Direct risky sink observed: evidence_strength = 4–5, confidence ≥ 0.8
 - Indirect/potential issue: evidence_strength = 2, confidence = 0.5
 - Cross-file assumptions: cap evidence_strength at 2 and confidence at 0.5`,
@@ -31894,9 +31894,9 @@ class GitHubService {
   }
 
   /**
-   * Delete previous DeepReview comments on the PR (keep the most recent one)
+   * Delete ALL previous DeepReview comments on the PR
    */
-  async deletePreviousComments() {
+  async deleteAllPreviousComments() {
     try {
       // Get all comments on the PR
       const { data: comments } = await this.octokit.rest.issues.listComments({
@@ -31911,16 +31911,14 @@ class GitHubService {
         comment => comment.body.includes('## 🤖 DeepReview') // Match our bot's header
       );
 
-      // Sort by creation date (newest first) to keep the most recent comment
-      botComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      if (botComments.length === 0) {
+        core.info('ℹ️  No existing DeepReview comments found');
+        return;
+      }
 
-      // Delete all but the most recent comment (if there are multiple)
-      const commentsToDelete = botComments.slice(1); // Skip the first (most recent) comment
-
-      for (const comment of commentsToDelete) {
-        core.info(
-          `🗑️ Deleting old DeepReview comment: ${comment.id} (created: ${comment.created_at})`
-        );
+      // Delete ALL existing DeepReview comments
+      for (const comment of botComments) {
+        core.info(`🗑️ Deleting DeepReview comment: ${comment.id} (created: ${comment.created_at})`);
         await this.octokit.rest.issues.deleteComment({
           owner: this.context.repo.owner,
           repo: this.context.repo.repo,
@@ -31928,15 +31926,7 @@ class GitHubService {
         });
       }
 
-      if (commentsToDelete.length > 0) {
-        core.info(
-          `✅ Deleted ${commentsToDelete.length} old DeepReview comment(s), kept the most recent one`
-        );
-      } else if (botComments.length > 0) {
-        core.info(
-          `ℹ️  Found ${botComments.length} existing DeepReview comment(s), will update the most recent one`
-        );
-      }
+      core.info(`✅ Deleted ${botComments.length} existing DeepReview comment(s)`);
     } catch (error) {
       core.warning(`⚠️  Error deleting previous comments: ${error.message}`);
       // Don't throw error - continue with adding new comment
@@ -31945,6 +31935,7 @@ class GitHubService {
 
   /**
    * Add PR comment to GitHub
+   * Always deletes old comments first, then adds a new comment
    */
   async addPRComment(comment) {
     if (this.context.eventName !== 'pull_request') {
@@ -31953,43 +31944,20 @@ class GitHubService {
     }
 
     try {
-      // First clean up old comments (keep the most recent one)
-      await this.deletePreviousComments();
+      // Step 1: Delete ALL existing DeepReview comments first
+      await this.deleteAllPreviousComments();
 
-      // Check if there's an existing DeepReview comment to update
-      const { data: comments } = await this.octokit.rest.issues.listComments({
+      // Step 2: Add a new comment
+      core.info('💬 Adding new DeepReview comment...');
+      await this.octokit.rest.issues.createComment({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
         issue_number: this.context.issue.number,
-        per_page: 100
+        body: comment
       });
+      core.info('✅ Added new PR comment successfully');
 
-      const existingBotComment = comments
-        .filter(comment => comment.body.includes('## 🤖 DeepReview'))
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]; // Get the most recent
-
-      if (existingBotComment) {
-        // Update the existing comment
-        core.info(`🔄 Updating existing DeepReview comment: ${existingBotComment.id}`);
-        await this.octokit.rest.issues.updateComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          comment_id: existingBotComment.id,
-          body: comment
-        });
-        core.info('✅ Updated existing PR comment successfully');
-      } else {
-        // Create a new comment
-        await this.octokit.rest.issues.createComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          issue_number: this.context.issue.number,
-          body: comment
-        });
-        core.info('✅ Added new PR comment successfully');
-      }
-
-      // Add "post code review" label to the PR
+      // Step 3: Add "post code review" label to the PR
       core.info('🏷️  Adding "post code review" label to PR...');
       await this.addPostCodeReviewLabel();
     } catch (error) {
