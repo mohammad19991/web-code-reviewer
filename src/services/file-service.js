@@ -72,12 +72,51 @@ class FileService {
    */
   getFileDiff(filePath) {
     try {
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      // Enhanced diff with more context lines and file structure
+      // Using unified=10 for optimal balance between context and performance
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
-      return diff;
+
+      // Add file structure context
+      const fileStructure = this.getFileStructureContext(filePath);
+
+      return `${fileStructure}\n${diff}`;
     } catch (error) {
       core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
       return '';
+    }
+  }
+
+  /**
+   * Get file structure context (imports, exports, class/function definitions)
+   */
+  getFileStructureContext(filePath) {
+    try {
+      // Get file structure without full content (try multiple approaches)
+      let structure = '';
+      try {
+        // First try git show - get more comprehensive structure
+        const structureCommand = `git show HEAD:${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
+        structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      } catch {
+        // If git show fails, try reading file directly
+        try {
+          const directCommand = `cat ${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
+          structure = execSync(directCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+        } catch {
+          // If both fail, return basic file header
+          return `--- File: ${filePath} ---\n`;
+        }
+      }
+
+      if (structure.trim()) {
+        return `--- File Structure Context for ${filePath} ---\n${structure}\n--- End Structure ---\n`;
+      } else {
+        return `--- File: ${filePath} ---\n`;
+      }
+    } catch {
+      // If structure extraction fails, continue without it
+      return `--- File: ${filePath} ---\n`;
     }
   }
 

@@ -3,6 +3,7 @@
  */
 
 const core = require('@actions/core');
+const ResponseParserService = require('./response-parser-service');
 const { CONFIG, getLanguageForFile } = require('../constants');
 
 class ReviewService {
@@ -166,67 +167,6 @@ class ReviewService {
   }
 
   /**
-   * Extract issues and metadata from LLM response
-   */
-  extractIssuesFromResponse(llmResponse) {
-    const issues = [];
-    const summaries = [];
-    let totalCriticalCount = 0;
-    let totalSuggestionCount = 0;
-    let jsonMatches = [];
-
-    try {
-      // Try to extract JSON from the new XML-style format first
-      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
-
-      if (jsonMatches.length > 0) {
-        jsonMatches.forEach((match, index) => {
-          try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
-            const reviewData = JSON.parse(jsonStr);
-
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
-            }
-
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
-                const issueWithContext = {
-                  ...issue,
-                  chunk: index + 1,
-                  originalId: issue.id
-                };
-                issues.push(issueWithContext);
-              });
-            }
-
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
-            }
-          } catch (parseError) {
-            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
-          }
-        });
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
-    }
-
-    return {
-      issues,
-      summaries,
-      totalCriticalCount,
-      totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
-    };
-  }
-
-  /**
    * Generate PR comment content with enhanced JSON parsing
    */
   generatePRComment(
@@ -246,7 +186,7 @@ class ReviewService {
       : 'All changes are safe and well-implemented';
 
     // Extract issues and metadata using centralized function
-    const extractedData = this.extractIssuesFromResponse(llmResponse);
+    const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
     // Create review summary
     let reviewSummary = '';
@@ -266,7 +206,12 @@ class ReviewService {
         issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
         criticalIssues.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -291,7 +236,12 @@ class ReviewService {
         issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
         suggestions.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -363,7 +313,7 @@ ${
   ) {
     try {
       // Extract issues from LLM response
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
       // Prepare issues for logging (simplified format)
       const logIssues = extractedData.issues.map(issue => ({

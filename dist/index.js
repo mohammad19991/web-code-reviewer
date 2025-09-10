@@ -29923,6 +29923,56 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 2335:
+/***/ ((module) => {
+
+/**
+ * Context configuration for enhanced LLM prompts
+ */
+
+const CONTEXT_CONFIG = {
+  // Context size limits (dynamic based on available tokens)
+  MAX_CONTEXT_SIZE: 75 * 1024, // 75KB max context size (fallback)
+  MAX_PROJECT_FILES: 30, // Max files to include in project structure
+  MAX_COMMIT_HISTORY: 15, // Max commits to include in recent history
+  MAX_IMPORT_LINES: 15, // Max import lines per file
+
+  // Dynamic context sizing based on available tokens
+  CONTEXT_TOKEN_RATIO: 0.3, // Use 30% of available tokens for context
+  MIN_CONTEXT_SIZE: 15 * 1024, // 15KB minimum context size
+  MAX_CONTEXT_SIZE_LARGE: 150 * 1024, // 150KB maximum context size
+
+  // Context features (can be toggled)
+  ENABLE_PROJECT_STRUCTURE: true,
+  ENABLE_DEPENDENCIES: true,
+  ENABLE_COMMIT_HISTORY: true,
+  ENABLE_FILE_RELATIONSHIPS: true,
+
+  // File patterns to exclude from context
+  EXCLUDE_PATTERNS: [
+    'node_modules',
+    'dist',
+    '.git',
+    'coverage',
+    '.nyc_output',
+    'build',
+    'out',
+    '.next',
+    '.nuxt'
+  ],
+
+  // File extensions to include in project structure
+  INCLUDE_EXTENSIONS: ['.js', '.ts', '.tsx', '.jsx', '.vue', '.svelte', '.json', '.md'],
+
+  // Context priority (order matters)
+  CONTEXT_PRIORITY: ['dependencies', 'project_structure', 'file_relationships', 'commit_history']
+};
+
+module.exports = CONTEXT_CONFIG;
+
+
+/***/ }),
+
 /***/ 8005:
 /***/ ((module) => {
 
@@ -30190,7 +30240,7 @@ module.exports = {
  */
 
 const PROCESSING_CONFIG = {
-  DEFAULT_CHUNK_SIZE: 300 * 1024, // 300KB default chunk size (optimized for Claude Sonnet 4)
+  DEFAULT_CHUNK_SIZE: 500 * 1024, // 500KB default chunk size (optimized for Claude Sonnet 4)
   MAX_CONCURRENT_REQUESTS: 1, // Reduced to 1 to avoid rate limits
   BATCH_DELAY_MS: 2000 // Increased delay between requests
 };
@@ -30316,6 +30366,8 @@ ${LANGUAGE_SPECIFIC_CHECKS[language]}
 
 ${SHARED_PROMPT_COMPONENTS.evidenceRequirements}
 
+${SHARED_PROMPT_COMPONENTS.confidenceAndEvidenceStrength}
+
 ${SHARED_PROMPT_COMPONENTS.finalPolicy}
 
 ${SHARED_PROMPT_COMPONENTS.outputFormat(config.testExample, config.fileExample)}
@@ -30373,63 +30425,130 @@ const QA_CRITICAL_OVERRIDES = {
  */
 
 const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-critical overrides (regardless of score)
-- Unsanitized HTML sinks: innerHTML/dangerouslySetInnerHTML with untrusted input.
-- User-influenced navigation/DOM injection without validation/escaping (location.href/assign/open, element.innerHTML, insertAdjacentHTML).
-- window.postMessage with "*" targetOrigin or without strict origin checks.
-- <a target="_blank"> to user-influenced URL without rel="noopener noreferrer".
-- Dynamic code execution with untrusted input (eval, new Function, VM).
-- Secrets/credentials/API tokens embedded in client code or shipped to browser.
-- Token/session persistence in localStorage/sessionStorage when any XSS sink exists.
-- Unbounded listeners/intervals/timeouts or render-time loops causing growth/leak.
-- URL.createObjectURL used with untrusted blobs without revocation/validation.
-- Missing CSRF protection on same-origin state-changing fetch/XHR.
-- XSS via unescaped user input rendered into the DOM/HTML.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_key, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+  js: `Auto-Critical Overrides — regardless of score
+Policy:
+- Directly observed + prod-reachable = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- If clearly dev/test-only or unreachable in prod = downgrade to "suggestion", evidence_strength≤2, confidence≤0.5, prefix fix_code_patch with "// approximate" if anchoring is uncertain.
+- Always anchor a ≤12-line snippet including the risky sink and input. Use post-patch line numbers; if only diff hunk is known, lower evidence/confidence.
+
+Auto-critical items:
+- Unescaped user input into dangerous DOM sinks: innerHTML, outerHTML, document.write, eval, Function, setTimeout/setInterval(string). Fix: safe DOM APIs, sanitization, templating.
+- Direct database queries without parameterization. Fix: parameterized queries, prepared statements, ORM builders.
+- Missing authentication/authorization checks in API routes or sensitive ops. Fix: explicit auth guard, RBAC/ABAC.
+- Hardcoded secrets, API keys, or credentials in source. Fix: remove from code, load via env/secret manager, rotate keys.
+- Unsafe deserialization of user data (JSON.parse untrusted, unsafe libs). Fix: schema validation, safe parser.
+- Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
+- Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
+
+Evidence defaults:
+- Direct untrusted sink: evidence_strength=5, confidence=0.9.
+- Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
+- Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- DOM injection: "<script>alert(1)</script>" is not executed.
+- SQL injection: "' OR 1=1 --" does not alter query.
+- Auth: unauthorized /admin returns 401/403.
+- Secrets: no apiKey in build artifacts.
+- Prototype pollution: "__proto__" input does not mutate Object prototype.
+- Logging: prod build has no raw console.log(userData).
 `,
 
-  python: `Auto-critical overrides (regardless of score)
-- eval/exec on user input.
-- pickle.load or yaml.load (unsafe Loader) on untrusted data.
-- subprocess/os.system with shell=True and untrusted input (command injection).
-- SQL composed with f-strings/%/.format (no parameterization).
-- requests/urllib with SSL verification disabled (verify=False).
-- DEBUG=True or template autoescape disabled in production.
-- Jinja2/Django template injection via unescaped user input.
-- CSRF disabled/missing for state-changing endpoints (web apps).
-- Path traversal in file I/O without canonicalization/validation.
-- Weak crypto (MD5/SHA1 for passwords; DES/ECB; hardcoded keys/seeds).
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
-- Unbounded threads/async tasks/loops causing memory/CPU leak or DoS.`,
+  python: `Auto-critical Overrides — regardless of score
+Policy:
+- If directly observed and reachable in production: severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- If clearly dev/test-only or guarded and unreachable in prod: downgrade to "suggestion", set evidence_strength≤2 and confidence≤0.5, and prefix fix_code_patch with "// approximate" if anchoring is uncertain.
+- Always anchor with a ≤12-line snippet including the risky call (and tainted source if applicable); use post-patch line numbers. If only a diff hunk is known, also cap evidence_strength≤2 and confidence≤0.5. Deduplicate via "occurrences".
 
-  java: `Auto-critical overrides (regardless of score)
-- Runtime.getRuntime().exec / ProcessBuilder with unvalidated input.
-- Raw SQL via java.sql.Statement or string concatenation (use PreparedStatement).
-- Insecure deserialization: ObjectInputStream on untrusted data; unsafe Java serialization.
-- TLS/cert validation disabled (TrustAllCerts / always-true HostnameVerifier / InsecureSkipVerify equivalents).
-- Logging sensitive data (passwords/tokens/PII) in plaintext or at INFO/DEBUG.
-- Path traversal in file I/O without canonicalization/checks.
-- Command injection via shell calls / native processes from user input.
-- XSS/HTML injection in server-side rendered responses due to missing escaping.
-- CSRF disabled for state-changing endpoints without compensating controls.
-- Weak crypto (MD5/SHA1 for passwords, DES/ECB, hardcoded keys/seeds).
-- Unbounded threads/executors/schedulers causing memory/CPU leak or DoS.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+Auto-critical items (with anchors & fixes):
+- eval/exec on user input → Anchor: eval/exec call. Fix: remove dynamic eval; use safe parser/dispatch map.
+- pickle.load or unsafe yaml.load on untrusted data → Anchor: call site. Fix: yaml.safe_load; avoid pickle for untrusted inputs.
+- subprocess/os.system with shell=True + untrusted input → Anchor: call site. Fix: list args, shell=False, validate inputs.
+- Raw SQL via f-strings/%/.format (no params) → Anchor: execute call. Fix: parameterized queries/placeholders.
+- HTTP verify=False (requests/urllib) → Anchor: call site. Fix: verify TLS; pin cert/CA; guard dev-only.
+- DEBUG=True or template autoescape disabled in prod → Anchor: settings/config. Fix: DEBUG=False; enable autoescape.
+- Template injection (unescaped user input) → Anchor: render_template/context. Fix: rely on autoescape; sanitize/escape.
+- CSRF disabled/missing on state-changing routes → Anchor: exempt/setting. Fix: enable CSRF tokens/policy.
+- Path traversal in file I/O → Anchor: path build + open/remove. Fix: canonicalize/resolve + allow-list base dir.
+- Weak crypto (MD5/SHA1 passwords, DES/ECB) or hardcoded keys → Anchor: hash/crypto call or literal key. Fix: modern KDF/algos; move secrets to env/secret store.
+- Embedded API keys/secrets in code (api_key, access_token, client_secret, private_key, etc.) → Anchor: literal. Fix: remove/rotate; use secrets manager.
+- Unbounded threads/async tasks/loops (leak/DoS) → Anchor: creation loop, infinite loop, unbounded queue. Fix: bounded pools/sem, joins/cancellation, backpressure.
+
+Defaults:
+- Direct & prod-reachable: evidence_strength=4 (5 if crystal-clear), confidence=0.8–0.9.
+- Guarded or uncertain: evidence_strength≤2, confidence≤0.5.
+
+Tests (≤2 lines examples):
+- eval/exec: malicious string is rejected.
+- SQL: "' OR 1=1 --" does not alter results (params used).
+- TLS: MITM with untrusted CA fails (verify=True).
+- Path traversal: "../../etc/passwd" rejected; path resolved inside base.`,
+
+  java: `Auto-Critical Overrides — regardless of score
+Policy:
+- Directly observed + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Dev/test-only or unreachable in prod => suggestion, evidence_strength≤2, confidence≤0.5, prefix patch with "// approximate" if anchoring uncertain.
+- Always anchor ≤12-line snippet with risky sink and tainted input when possible. Use post-patch line numbers; if only diff hunk known, lower evidence/confidence.
+
+Auto-critical items:
+- SQL injection via string concatenation in Statement/native queries. Fix: PreparedStatement/ORM parameters.
+- Command injection via Runtime.exec/ProcessBuilder with untrusted strings. Fix: arg lists, allowlists, no shell.
+- Unsafe deserialization of untrusted data (ObjectInputStream, unsafe Jackson settings). Fix: avoid Java serialization; strict schema; ObjectInputFilter.
+- XSS: unescaped user input in JSP/Thymeleaf/FreeMarker/HTML. Fix: auto-escape/encoders.
+- Missing authentication/authorization on sensitive endpoints. Fix: Spring Security guards (RBAC/ABAC).
+- CSRF disabled/missing for state-changing endpoints. Fix: enable CSRF tokens.
+- Insecure TLS/hostname verification (trust-all). Fix: proper trust store + hostname verification.
+- Hardcoded secrets/API keys/credentials in code. Fix: externalize to secrets manager; rotate.
+- Path traversal in file I/O without canonicalization/allowlist. Fix: canonicalize + enforce base dir.
+- Insecure crypto (MD5/SHA1, AES/ECB, weak RNG). Fix: modern KDF; AES-GCM; secure RNG.
+- Template injection by interpreting untrusted expressions. Fix: sandbox/disable expression eval.
+- Unbounded thread pools/schedulers causing DoS. Fix: bounded pools, queue limits, backpressure, shutdown.
+
+Evidence defaults:
+- Direct & prod-reachable: evidence_strength=5, confidence=0.9 (or 4/0.8).
+- Guarded/unclear: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines):
+- SQLi: "' OR 1=1 --" inert with params.
+- Command: untrusted arg not executed.
+- XSS: "<script>" inert.
+- Auth: unauthorized -> 401/403.
+- TLS: MITM with untrusted CA fails.
+- Path traversal: "../../etc/passwd" rejected.
 `,
 
-  php: `Auto-critical overrides (regardless of score)
-- eval/assert/create_function on user input.
-- File inclusion from user-controlled input (include/require with tainted path).
-- unserialize on untrusted data; unsafe __wakeup/__destruct gadget chains.
-- SQL injection via interpolated strings; missing PDO prepared statements/bindings.
-- Passwords hashed with md5/sha1 (use password_hash/password_verify).
-- Exposing phpinfo or debug toolbars in production.
-- Command injection via shell_exec/system/passthru with untrusted input.
-- XSS via unescaped user input in templates (echo/print) or legacy engines.
-- CSRF middleware disabled or missing on state-changing routes.
-- Weak session config (missing HttpOnly/Secure/SameSite; session fixation).
-- Path traversal in file operations without sanitization.
-- API keys, secrets, or credentials embedded in client code (patterns: api_key, apiKey, access_token, secret, password, private_key, client_secret, bearer_token, authorization, x-api-key, api-token, jwt_token, session_token, auth_token, oauth_token, refresh_token, stripe_key, firebase_key, aws_key, google_key, azure_key, github_token, gitlab_token, bitbucket_token, slack_token, discord_token, telegram_token, twilio_key, sendgrid_key, mailgun_key, pusher_key, algolia_key, mapbox_key, weather_api_key, news_api_key, youtube_api_key, twitter_api_key, facebook_token, instagram_token, linkedin_token, paypal_key, square_key, braintree_key, stripe_secret, firebase_secret, aws_secret, google_secret, azure_secret, github_secret, gitlab_secret, bitbucket_secret, slack_secret, discord_secret, telegram_secret, twilio_secret, sendgrid_secret, mailgun_secret, pusher_secret, algolia_secret, mapbox_secret, weather_api_secret, news_api_secret, youtube_api_secret, twitter_api_secret, facebook_secret, instagram_secret, linkedin_secret, paypal_secret, square_secret, braintree_secret).
+  php: `Auto-Critical Overrides — regardless of score
+Policy:
+- Direct + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Dev/test-only or unreachable => suggestion with evidence_strength≤2, confidence≤0.5; prefix patch with "// approximate" if uncertain.
+- Always anchor ≤12-line snippet with risky sink and tainted input. Use post-patch line numbers; if only diff hunk, lower evidence/confidence. Deduplicate via "occurrences".
+
+Auto-critical items:
+- SQL injection via string interpolation/concatenation (PDO/mysqli). Fix: prepared statements with bound params.
+- Command injection (exec/shell_exec/passthru/backticks) using untrusted input. Fix: avoid shell; allowlists; native APIs.
+- XSS: unescaped user data echoed into HTML/JS. Fix: htmlspecialchars/Twig auto-escape.
+- File inclusion (RFI/LFI) from user input. Fix: strict allowlists; no dynamic includes.
+- Path traversal in file I/O. Fix: realpath/canonicalize + base dir allowlist.
+- Insecure deserialization via unserialize on untrusted input. Fix: avoid; use JSON + schema.
+- CSRF missing on state-changing routes. Fix: CSRF tokens/middleware.
+- Weak password hashing/crypto (md5/sha1, mcrypt ECB). Fix: password_hash (Bcrypt/Argon2), libsodium.
+- Hardcoded secrets/API keys/credentials in code. Fix: env/secret manager; rotate keys.
+- Open redirects using unvalidated user-controlled URLs. Fix: allowlist domains/paths.
+- TLS verification disabled in cURL. Fix: enable verify; pin CA/certs if needed.
+- Session fixation/misconfig (no regenerate on login; insecure cookie flags). Fix: regenerate ID; secure/httponly cookies.
+- Unbounded processes/loops causing DoS. Fix: resource/time bounds, backpressure.
+
+Evidence defaults:
+- Direct & prod-reachable: evidence_strength=5, confidence=0.9 (or 4/0.8).
+- Guarded/unclear: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines):
+- SQLi: "' OR 1=1 --" inert with prepared statements.
+- Command: untrusted input not executed.
+- XSS: "<script>" inert in output.
+- CSRF: missing token -> 403/validation error.
+- TLS: cURL with untrusted CA fails when verification on.
+- Path traversal: "../../etc/passwd" rejected.
 `,
 
   qa_web: QA_CRITICAL_OVERRIDES.qa,
@@ -30482,31 +30601,135 @@ const QA_SPECIFIC_CHECKS = {
  */
 
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript checks (only if visible in diff)
-- React: unstable hook deps; heavy work in render; missing cleanup in useEffect; dangerouslySetInnerHTML; index-as-key on dynamic lists; un-memoized context values; consider lazy()/Suspense for large modules.
-- TypeScript: any/unknown leakage across module boundaries; unsafe narrowing; non-null assertions (!); ambient type mutations.
-- Fetch/IO: missing AbortController/timeout; no retry/backoff for critical calls; leaking subscriptions/websockets; unbounded intervals.
-- Performance: N+1 renders; O(n²) loops over props/state; large lists without virtualization; expensive JSON.stringify in deps.
-- Security: user-controlled URLs passed to location.assign/href/open; URL.createObjectURL on untrusted blobs; storage of tokens in localStorage/sessionStorage (flag high risk).
-- Accessibility: only flag as "critical" if it blocks core flows.`,
+  js: `JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
+React:
+- Unstable hook deps (useEffect/useMemo/useCallback) when deps omit referenced vars or include unstable inline values. Anchor hook + deps. Default: evidence_strength=3, confidence=0.7.
+- Heavy work in render (expensive ops in component/JSX). Anchor call chain. Default: 3, 0.7 (cap to 2, 0.5 if data size unknown).
+- Missing cleanup in useEffect for subscriptions/timers/sockets. Anchor effect body; Default: 4, 0.8.
+- dangerouslySetInnerHTML: user-controlled → auto-critical (security); static → suggestion.
+- Index-as-key in dynamic lists. Anchor JSX key; Default: 2, 0.5.
+- Un-memoized context values/expensive props passed deep; consider useMemo/useCallback. Default: 2–3, 0.5–0.7.
+- Consider React.lazy/Suspense for clearly large modules.
 
-  python: `Python-specific checks (only if visible in diff)
-- Performance: loading large datasets wholly into memory instead of streaming; blocking I/O in async functions; unbounded recursion; excessive global caches without eviction.
-- Maintainability: circular imports; giant monolithic scripts; bare except clauses; mutable default arguments; tight coupling between modules.
-- Best practices: missing context managers (with open); requests without timeouts; weak logging/redaction of secrets; misuse of globals in concurrency.
-- Web specifics (Django/Flask/FastAPI): CSRF disabled; debug=True in production; open CORS; Jinja2 autoescape disabled; unsanitized input passed to render_template.`,
+TypeScript:
+- any/unknown leakage across module boundaries (exports). Anchor export signature. Default: 3, 0.7.
+- Unsafe narrowing/non-null (!) where undefined is possible. Default: 3, 0.7.
+- Ambient/global type mutations widening types. Default: 3, 0.6.
 
-  java: `Java-specific checks (only if visible in diff)
-- Performance: opening/closing DB connections inside loops; unbounded thread creation; missing close on I/O streams/sockets; synchronized hot paths causing contention.
-- Maintainability: god-classes (>1k LOC); methods >200 LOC; excessive static state/singletons; cyclic dependencies.
-- Best practices: missing try-with-resources; swallowed exceptions; misuse of Optional; unchecked futures; blocking calls on reactive threads.
-- Web/Spring specifics: disabled CSRF without compensating controls; permissive CORS ("*"); @Controller returning unescaped user content; missing @Valid on request DTOs.`,
+Fetch/IO:
+- Missing AbortController/timeout on fetch/axios; no cancellation for long-lived calls. Default: 3, 0.7.
+- No retry/backoff for critical idempotent calls. Default: 2, 0.5.
+- Leaking subscriptions/websockets or unbounded setInterval. Default: 4, 0.8 if no cleanup.
+- URL.createObjectURL without revokeObjectURL. Default: 3, 0.7.
 
-  php: `PHP-specific checks (only if visible in diff)
-- Performance: N+1 queries in loops; lack of query caching; output buffering absent for large responses.
-- Maintainability: global state; mixing presentation and business logic; lack of namespaces/autoloading; sprawling includes.
-- Best practices: missing input validation/sanitization (filter_input/htmlspecialchars); deprecated APIs (mysql_* / ereg); weak session settings (no HttpOnly/SameSite).
-- Framework specifics (Laravel/Symfony): mass-assignment without guarded/fillable; CSRF middleware disabled; debug mode enabled in prod.`,
+Performance:
+- N+1 renders/effects (loop-triggered state/effects). Default: 2–3, 0.5–0.7.
+- O(n^2) work in render over props/state. Default: 3, 0.7.
+- Large lists without virtualization when clearly large. Default: 2, 0.5.
+
+Security (additional):
+- User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
+- Tokens stored in localStorage/sessionStorage → auto-critical unless strong mitigations. Anchor storage write. Default: 4–5, 0.8.
+- URL.createObjectURL used with untrusted blobs without checks. Default: 3, 0.6.
+
+Accessibility:
+- Only mark critical if core flows are blocked; otherwise suggestion with evidence_strength ≤ 2.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  python: `Python-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+
+Performance:
+- Whole-dataset loads: pandas/json/db result sets fully materialized where streaming/chunking is feasible. Default evidence=3, confidence=0.7.
+- Blocking I/O in async: requests/file/db sync calls inside async def. Default 4, 0.8.
+- Unbounded recursion on large inputs. Default 3, 0.7.
+- Global caches without eviction (LRU maxsize=None, custom caches). Default 3, 0.7.
+
+Maintainability:
+- Circular imports / tight coupling across changed modules. Default 3, 0.6.
+- Monolithic scripts accumulating unrelated concerns. Default 2, 0.5.
+- Bare except / broad except without re-raise or logging. Default 3, 0.7.
+- Mutable default arguments (def f(x=[], y={})). Default 4, 0.8.
+
+Best practices:
+- Missing context managers (with open/socket/lock). Default 4, 0.8 if leaks likely.
+- requests without timeout / no retry/backoff for critical idempotent calls. Default 3, 0.7.
+- Weak logging / no redaction of secrets/PII. Default 4, 0.8.
+- Globals shared in concurrency without locks/async primitives. Default 3, 0.7.
+
+Concurrency & Async:
+- Thread/task leaks (no join/cancel), unbounded executors. Default 4, 0.8.
+- Blocking calls (time.sleep/CPU loops) inside async def without executor. Default 4, 0.8.
+
+Web (Django/Flask/FastAPI):
+- CSRF disabled/missing on state-changing routes → auto-critical.
+- debug=True in production paths/config → auto-critical if unguarded.
+- Open CORS (*) with credentials → 4, 0.8 (critical if prod).
+- Template autoescape disabled → auto-critical.
+- Unsanitized input passed to render_template/context → critical if taint is clear.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  java: `Java Language-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
+  
+Performance:
+- N+1 queries / queries in loops. Anchor loop + query. Default 4,0.8.
+- O(n^2) hot paths in request/critical code. Anchor nested loops. Default 3,0.7.
+- Blocking I/O without timeouts/retries. Anchor client call. Default 3,0.7.
+- Inefficient collections/boxing; String concat in loops. Anchor site. Default 2–3,0.6–0.7.
+- Whole-object loads vs streaming. Anchor repo/service call. Default 3,0.6.
+
+Maintainability:
+- Bare catch(Exception)/swallow. Anchor try/catch. Default 3,0.7.
+- Missing try-with-resources (leaks). Anchor resource acquisition. Default 4,0.8.
+- Cyclic deps/god classes. Anchor imports/large class. Default 2,0.5.
+- Ignoring InterruptedException. Anchor catch block. Default 3,0.7.
+- equals/hashCode contract issues. Anchor methods. Default 3,0.7.
+
+Best practices:
+- Missing Bean Validation on DTO/controller params. Anchor annotations/sigs. Default 3,0.7.
+- Null handling/Optional misuse. Anchor method sigs. Default 2,0.6.
+- Concurrency misuse (unsafe publish, non-threadsafe collections). Anchor shared field + access. Default 4,0.8.
+- Streams misuse in hot paths. Anchor pipeline. Default 2–3,0.6–0.7.
+
+Web (Spring/Jakarta):
+- Open CORS (* with credentials). Anchor CORS config. Default 3,0.7.
+- Missing @Transactional around multi-step DB ops. Anchor service method. Default 3,0.7.
+- Exception leakage (no ControllerAdvice). Anchor config. Default 3,0.7.
+- HTTP clients without timeouts/backoff. Anchor builder. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
+
+  php: `PHP Language-Specific Checks
+
+Performance:
+- N+1: queries in loops. Anchor loop + query. Default 4,0.8.
+- Expensive ops in request path (large arrays, heavy regex, repeated json_encode). Anchor site. Default 3,0.7.
+- Unbounded output buffering. Anchor buffering usage. Default 2,0.6.
+
+Maintainability:
+- Mixed concerns/monolithic scripts. Anchor sections. Default 2,0.5.
+- Broad catch/silent errors; error suppression with "@". Anchor site. Default 3,0.7.
+- Global state across modules/superglobals. Anchor usage. Default 3,0.7.
+- Missing param/return types in modern PHP. Anchor function sigs. Default 2–3,0.6–0.7.
+
+Best practices:
+- Missing declare(strict_types=1) where standard applies. Anchor header. Default 2,0.6.
+- Loose comparisons (==) in sensitive contexts. Anchor comparison. Default 3,0.7.
+- include/require without checks vs Composer autoload. Anchor include. Default 2,0.5.
+- HTTP clients without timeouts/backoff. Anchor options. Default 3,0.7.
+- Logging PII/secrets without redaction. Anchor logger. Default 4,0.8.
+
+Web (Laravel/Symfony/Vanilla):
+- Missing validation for user input (FormRequest/Validator). Anchor controller. Default 3,0.7.
+- Mass assignment via Model::create($request->all()) without $fillable. Anchor model usage. Default 3,0.7.
+- display_errors/Debug enabled in prod. Anchor config. Default 3,0.7.
+- Session/cookie flags (secure/httponly/samesite) missing. Anchor config. Default 3,0.7.
+- File uploads missing validation or stored under webroot. Anchor handler. Default 3,0.7.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
   qa_web: QA_SPECIFIC_CHECKS.qa,
   qa_android: QA_SPECIFIC_CHECKS.qa,
@@ -30534,56 +30757,65 @@ You are a senior ${role} (10+ years) reviewing only the provided diff/files for 
   detrminismAndOutputContract: `
 Determinism & Output Contract
 - Return EXACTLY two parts, in this order, with no extra prose:
-  1) <JSON>…valid single JSON object…</JSON>
-  2) <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
-- Do NOT wrap JSON in markdown/code fences. No commentary outside these tags.
-- If the JSON would be invalid, immediately re-emit a corrected JSON object (no explanations).
-- Maximum 10 issues. Sort by severity_score (desc). Use 1-based, inclusive line numbers. Round severity_score to 2 decimals.
-- CRITICAL: Be deterministic. For identical code inputs, produce identical outputs.
-- Use consistent issue IDs: SEC-01, SEC-02, PERF-01, PERF-02, MAINT-01, MAINT-02, BEST-01, BEST-02.
-- Apply the same severity scoring algorithm consistently across all issues.
-- ALWAYS mark API keys, secrets, or credentials as CRITICAL regardless of other factors.
-- IMPORTANT: Always analyze the code thoroughly and report any issues found. Do not skip analysis.
+  1. <JSON>…valid single JSON object…</JSON>
+  2. <SUMMARY>…a brief human summary (≤6 bullets)…</SUMMARY>
+- Do NOT wrap JSON in markdown code fences. No commentary outside these tags.
+- Maximum 10 issues. Sort by severity_score (desc).
+- Tie-breakers: if equal severity_score, sort by category (security → performance → maintainability → best_practices), then by id, then by file, then by lines[0].
+- Round severity_score to 2 decimals using fixed-point rounding.
+- Deterministic: identical inputs must always produce identical outputs.
 `,
 
   // Common scope and exclusions
-  scopeAndExclusions: `Scope & Exclusions (very important)
+  scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
-- Ignore style/formatting/naming/import order/linters/auto-formatters and non-material preferences.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence; mark as "suggestion".`,
+- Ignore style/formatting/naming/import order/linters/auto-formatters.
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
 
   // Common severity scoring
-  severityScoring: `Severity Scoring (mandatory)
-For EACH issue, assign 0–5 scores using these EXACT criteria:
-- impact: 0=none, 1=low, 2=medium, 3=high, 4=severe, 5=critical
-- exploitability: 0=impossible, 1=very hard, 2=hard, 3=moderate, 4=easy, 5=trivial
-- likelihood: 0=never, 1=rare, 2=unlikely, 3=possible, 4=likely, 5=certain
-- blast_radius: 0=none, 1=local, 2=component, 3=module, 4=system, 5=entire app
-- evidence_strength: 0=none, 1=weak, 2=moderate, 3=strong, 4=very strong, 5=conclusive
-
-Compute EXACTLY:
-severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
-
-Set severity_proposed using EXACT thresholds:
+  severityScoring: `Severity Scoring
+For EACH issue, assign 0–5 scores for: impact, exploitability, likelihood, blast_radius, evidence_strength.
+Compute: severity_score = 0.35*impact + 0.30*exploitability + 0.20*likelihood + 0.10*blast_radius + 0.05*evidence_strength
+Set severity_proposed:
 - "critical" if severity_score ≥ 3.60 AND evidence_strength ≥ 3
-- otherwise "suggestion"
-
-Add "risk_factors_notes": one short line per factor explaining the anchor (e.g., "exploitability=5: unescaped input flows to innerHTML").
-
-CRITICAL: Apply these exact same criteria and thresholds to identical code patterns.`,
+- Otherwise "suggestion"`,
 
   // Common evidence requirements
-  evidenceRequirements: `Evidence Requirements (for EACH issue)
-- Provide: file (relative path), lines [start,end], snippet (≤12 lines, must include the risky call/sink), why_it_matters (1 sentence), fix_summary (1–2 sentences), fix_code_patch (specific code changes), tests (brief regression test), confidence ∈ [0,1].
-- Deduplicate repeated patterns via "occurrences": array of {file, lines}.
-- If you cannot anchor an exact edit, prefix fix_code_patch with "// approximate", set evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+  evidenceRequirements: `Evidence & Remediation Requirements
+For EACH issue, provide:
+- id (SEC-01, PERF-01, MAINT-01, BEST-01, etc.)
+- category
+- severity_proposed
+- severity_score (rounded 2 decimals)
+- risk_factors: { impact, exploitability, likelihood, blast_radius, evidence_strength }
+- risk_factors_notes: one short anchor note for each factor
+- confidence ∈ [0,1]
+- file, lines [start,end]
+- snippet (≤12 lines including risky call/sink)
+- why_it_matters (1 sentence)
+- fix_summary (1–2 sentences)
+- fix_code_patch (concrete patch; prefix with // approximate if uncertain)
+- tests (≤2 lines Jest-style or pseudo)
+- occurrences (array of {file, lines})
+If a fix cannot be precisely anchored, mark evidence_strength ≤ 2 and confidence ≤ 0.5.`,
+
+  confidenceAndEvidenceStrength: `Confidence & Evidence Strength Rubric
+- Direct risky sink observed: evidence_strength = 4–5, confidence ≥ 0.8
+- Indirect/potential issue: evidence_strength = 2, confidence = 0.5
+- Cross-file assumptions: cap evidence_strength at 2 and confidence at 0.5`,
 
   // Common final policy
-  finalPolicy: `Final Policy
-- final_recommendation = "do_not_merge" if any issue is "critical" with confidence ≥ 0.6; else "safe_to_merge".`,
+  finalPolicy: `Final Recommendation
+- final_recommendation = "do_not_merge" if any issue is critical with confidence ≥ 0.6
+- Otherwise "safe_to_merge"`,
 
   // Common output format
-  outputFormat: (testExample, fileExample) => `Output Format
+  outputFormat: (testExample, fileExample) => `JSON Schema (strict)
+- category must be exactly one of: security, performance, maintainability, best_practices.
+- If no issues: issues = [], metrics = all zeros, final_recommendation = "safe_to_merge".
+- Always emit a 1–2 sentence summary in <SUMMARY>.
+
+Output Format
 Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summary inside <SUMMARY> … </SUMMARY>:
 
 <JSON>
@@ -30627,10 +30859,10 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
 </JSON>
 
 <SUMMARY>
-• 🔒 Security issues — short note
-• ⚡ Performance issues — short note
-• 🛠️ Maintainability issues — short note
-• 📚 Best Practices issues — short note
+• Overall assessment in 1–2 sentences
+• Key critical issues (if any)
+• Key suggestions (if any)
+• Final recommendation
 </SUMMARY>`,
 
   // Common context
@@ -30638,6 +30870,696 @@ Emit EXACTLY this JSON schema inside <JSON> … </JSON>, then a short human summ
 };
 
 module.exports = SHARED_PROMPT_COMPONENTS;
+
+
+/***/ }),
+
+/***/ 6819:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Context Service - Provides additional context to improve LLM reliability
+ */
+
+const { execSync } = __nccwpck_require__(5317);
+const core = __nccwpck_require__(7484);
+const CONTEXT_CONFIG = __nccwpck_require__(2335);
+
+/**
+ * Optimized shell command execution with better error handling
+ */
+class ShellExecutor {
+  static execute(command, options = {}) {
+    const defaultOptions = {
+      encoding: 'utf8',
+      maxBuffer: 5 * 1024 * 1024,
+      timeout: 30000, // 30 second timeout
+      ...options
+    };
+
+    try {
+      return execSync(command, defaultOptions);
+    } catch (error) {
+      if (error.signal === 'SIGTERM') {
+        throw new Error(`Command timed out: ${command}`);
+      }
+      throw error;
+    }
+  }
+
+  static executeWithFallback(primaryCommand, fallbackCommand, options = {}) {
+    try {
+      return this.execute(primaryCommand, options);
+    } catch (error) {
+      core.warning(`⚠️  Primary command failed, trying fallback: ${error.message}`);
+      try {
+        return this.execute(fallbackCommand, options);
+      } catch (fallbackError) {
+        throw new Error(
+          `Both primary and fallback commands failed. Primary: ${error.message}, Fallback: ${fallbackError.message}`
+        );
+      }
+    }
+  }
+}
+
+class ContextService {
+  constructor(baseBranch) {
+    this.baseBranch = baseBranch;
+  }
+
+  /**
+   * Execute context generation with performance monitoring
+   */
+  executeWithTiming(contextType, generator) {
+    const startTime = Date.now();
+    const data = generator();
+    const duration = Date.now() - startTime;
+
+    core.info(`⏱️  Generated ${contextType} context in ${duration}ms`);
+    return data;
+  }
+
+  /**
+   * Safely escape file path for shell commands
+   */
+  escapeFilePath(filePath) {
+    // Escape single quotes and wrap in single quotes to handle special characters
+    return `'${filePath.replace(/'/g, "'\"'\"'")}'`;
+  }
+
+  /**
+   * Calculate dynamic context size based on available tokens
+   */
+  calculateDynamicContextSize(estimatedTokens, maxTokens = 200000) {
+    const availableTokens = maxTokens - estimatedTokens;
+    const contextTokens = Math.floor(availableTokens * CONTEXT_CONFIG.CONTEXT_TOKEN_RATIO);
+
+    // Convert tokens to bytes (rough approximation: 4 chars per token)
+    const contextSize = contextTokens * 4;
+
+    // Apply min/max limits
+    const finalSize = Math.max(
+      CONTEXT_CONFIG.MIN_CONTEXT_SIZE,
+      Math.min(contextSize, CONTEXT_CONFIG.MAX_CONTEXT_SIZE_LARGE)
+    );
+
+    core.info(
+      `🎯 Dynamic context size: ${Math.round(finalSize / 1024)}KB (${contextTokens} tokens available)`
+    );
+    return finalSize;
+  }
+
+  /**
+   * Get dependency context (package.json, imports)
+   */
+  getDependencyContext() {
+    if (!CONTEXT_CONFIG.ENABLE_DEPENDENCIES) {
+      return '';
+    }
+
+    return this.executeWithTiming('dependencies', () => {
+      try {
+        let context = '--- Dependencies Context ---\n';
+
+        // Get package.json with better formatting
+        try {
+          const packageJsonRaw = ShellExecutor.execute('cat package.json');
+          const packageJson = JSON.parse(packageJsonRaw);
+
+          context += '📦 Project Type:\n';
+          context += `  ${packageJson.type || 'CommonJS'}\n`;
+        } catch {
+          // Fallback to raw package.json
+          const packageJson = ShellExecutor.execute('cat package.json');
+          context += `📦 Package.json (raw):\n${packageJson}\n`;
+        }
+
+        // Get lock file info if available
+        try {
+          const lockFile = ShellExecutor.execute(
+            'ls -la package-lock.json yarn.lock 2>/dev/null | head -1'
+          );
+          if (lockFile.trim()) {
+            context += `\n🔒 Lock file: ${lockFile.trim()}\n`;
+          }
+        } catch {
+          // No lock file found
+        }
+
+        context += '\n--- End Dependencies ---\n';
+        return context;
+      } catch (error) {
+        core.warning(`⚠️  Could not get dependency context: ${error.message}`);
+        return '';
+      }
+    });
+  }
+
+  /**
+   * Get recent commit context for pattern analysis
+   */
+  getRecentCommitContext() {
+    if (!CONTEXT_CONFIG.ENABLE_COMMIT_HISTORY) {
+      return '';
+    }
+
+    return this.executeWithTiming('commit_history', () => {
+      try {
+        const commitCommand = `git log --oneline --no-merges origin/${this.baseBranch}..HEAD | head -${CONTEXT_CONFIG.MAX_COMMIT_HISTORY} | sed 's/^[a-f0-9]* //'`;
+        const commits = ShellExecutor.execute(commitCommand);
+        return `--- Recent Commits Context ---\n${commits}\n--- End Recent Commits ---\n`;
+      } catch (error) {
+        core.warning(`⚠️  Could not get recent commit context: ${error.message}`);
+        return '';
+      }
+    });
+  }
+
+  /**
+   * Get file relationship context (imports/exports between changed files)
+   */
+  getFileRelationshipsContext(changedFiles) {
+    if (!CONTEXT_CONFIG.ENABLE_FILE_RELATIONSHIPS) {
+      return '';
+    }
+
+    return this.executeWithTiming('file_relationships', () => {
+      try {
+        let context = '--- File Relationships Context ---\n';
+
+        if (!changedFiles || changedFiles.length === 0) {
+          context += 'No changed files to analyze relationships.\n';
+          context += '--- End File Relationships ---\n';
+          return context;
+        }
+
+        // Analyze each changed file for comprehensive relationships
+        for (const file of changedFiles) {
+          try {
+            context += `\n🔗 ${file}:\n`;
+
+            // Get file content to analyze
+            const escapedFile = this.escapeFilePath(file);
+            const fileContent = ShellExecutor.executeWithFallback(
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
+            );
+
+            if (!fileContent.trim()) {
+              context += '  (File not found or empty)\n';
+              continue;
+            }
+
+            // Focus only on direct imports and exports (most relevant for review)
+            const incomingRelationships = this.analyzeIncomingRelationships(fileContent);
+            if (incomingRelationships.length > 0) {
+              context += '  📥 Imports:\n';
+              incomingRelationships.slice(0, 5).forEach(rel => {
+                // Limit to 5 most important
+                context += `    ${rel}\n`;
+              });
+            }
+
+            const outgoingRelationships = this.analyzeOutgoingRelationships(fileContent);
+            if (outgoingRelationships.length > 0) {
+              context += '  📤 Exports:\n';
+              outgoingRelationships.slice(0, 5).forEach(rel => {
+                // Limit to 5 most important
+                context += `    ${rel}\n`;
+              });
+            }
+          } catch (error) {
+            context += `  ⚠️ Could not analyze ${file}: ${error.message}\n`;
+          }
+        }
+
+        context += '\n--- End File Relationships ---\n';
+        return context;
+      } catch (error) {
+        core.warning(`⚠️  Could not get file relationship context: ${error.message}`);
+        return '';
+      }
+    });
+  }
+
+  /**
+   * Get semantic code context - analyze what functions/classes are being used and their relationships
+   */
+  getSemanticCodeContext(changedFiles) {
+    return this.executeWithTiming('semantic_code', () => {
+      try {
+        let context = '--- Semantic Code Context ---\n';
+
+        if (!changedFiles || changedFiles.length === 0) {
+          context += 'No changed files to analyze.\n';
+          context += '--- End Semantic Code ---\n';
+          return context;
+        }
+
+        // Analyze each changed file for semantic understanding
+        for (const file of changedFiles) {
+          try {
+            context += `\n🔍 ${file}:\n`;
+
+            // Get file content
+            const escapedFile = this.escapeFilePath(file);
+            const fileContent = ShellExecutor.executeWithFallback(
+              `git show HEAD:${escapedFile} 2>/dev/null`,
+              `cat ${escapedFile} 2>/dev/null`
+            );
+
+            if (!fileContent.trim()) {
+              context += '  (File not found or empty)\n';
+              continue;
+            }
+
+            // Extract only key function/class definitions (most relevant for review)
+            const definitions = this.extractCodeDefinitions(fileContent);
+            if (definitions.length > 0) {
+              context += '  📝 Key Definitions:\n';
+              definitions.slice(0, 5).forEach(def => {
+                // Limit to 5 most important
+                context += `    ${def}\n`;
+              });
+            }
+          } catch (error) {
+            context += `  ⚠️ Could not analyze ${file}: ${error.message}\n`;
+          }
+        }
+
+        context += '\n--- End Semantic Code ---\n';
+        return context;
+      } catch (error) {
+        core.warning(`⚠️  Could not get semantic code context: ${error.message}`);
+        return '';
+      }
+    });
+  }
+
+  /**
+   * Get comprehensive context for LLM with size limits and parallel processing
+   */
+  async getComprehensiveContext(changedFiles, estimatedTokens = 0) {
+    const startTime = Date.now();
+
+    core.info(
+      `🔍 Context Service: Received ${changedFiles ? changedFiles.length : 0} changed files`
+    );
+    if (changedFiles && changedFiles.length > 0) {
+      core.info(`🔍 Changed files: ${changedFiles.join(', ')}`);
+    }
+
+    // Generate focused context for code review - only what's truly relevant
+    const contextPromises = [
+      this.getSemanticCodeContext(changedFiles),
+      this.getFileRelationshipsContext(changedFiles),
+      this.getDependencyContext(),
+      this.getRecentCommitContext()
+    ];
+
+    // Wait for all contexts to be generated in parallel
+    const contexts = await Promise.all(contextPromises);
+    const filteredContexts = contexts.filter(context => context.trim());
+
+    // Organize context with LLM-focused structure
+    const organizedContext = this.organizeLLMContext(filteredContexts, changedFiles);
+
+    const totalTime = Date.now() - startTime;
+    core.info(
+      `🚀 Generated comprehensive context in ${totalTime}ms (${filteredContexts.length} contexts)`
+    );
+
+    // Apply relevance filtering
+    const filteredContext = this.filterRelevantContext(organizedContext, changedFiles);
+    const originalSize = Math.round(organizedContext.length / 1024);
+    const filteredSize = Math.round(filteredContext.length / 1024);
+
+    if (filteredSize < originalSize) {
+      core.info(
+        `🎯 Context filtered: ${originalSize}KB → ${filteredSize}KB (${Math.round((1 - filteredSize / originalSize) * 100)}% reduction)`
+      );
+    }
+
+    // Calculate dynamic context size limit
+    const dynamicLimit =
+      estimatedTokens > 0
+        ? this.calculateDynamicContextSize(estimatedTokens)
+        : CONTEXT_CONFIG.MAX_CONTEXT_SIZE;
+
+    // Limit context size to prevent token overflow
+    if (filteredContext.length > dynamicLimit) {
+      core.warning(
+        `⚠️  Context size (${filteredSize}KB) exceeds dynamic limit (${Math.round(dynamicLimit / 1024)}KB), truncating...`
+      );
+      const truncatedContext =
+        filteredContext.substring(0, dynamicLimit) +
+        '\n\n--- [Context truncated due to size limits] ---';
+
+      core.info(`📋 Final context (truncated): ${Math.round(truncatedContext.length / 1024)}KB`);
+      core.info(`📋 Final context content:\n${truncatedContext}`);
+
+      return truncatedContext;
+    }
+
+    core.info(`📋 Final context: ${filteredSize}KB`);
+    core.info(`📋 Final context content:\n${filteredContext}`);
+
+    return filteredContext;
+  }
+
+  /**
+   * Filter context based on relevance to changed files
+   */
+  filterRelevantContext(context, changedFiles) {
+    if (!changedFiles || changedFiles.length === 0) {
+      return context;
+    }
+
+    try {
+      // Extract file extensions from changed files
+      const changedExtensions = new Set(
+        changedFiles.map(file => file.split('.').pop()).filter(Boolean)
+      );
+
+      // Filter project structure context to only include relevant files
+      const lines = context.split('\n');
+      const filteredLines = [];
+      let inProjectStructure = false;
+      let skipFile = false;
+
+      for (const line of lines) {
+        if (line.includes('--- Project Structure Context ---')) {
+          inProjectStructure = true;
+          filteredLines.push(line);
+          continue;
+        }
+
+        if (line.includes('--- End Project Structure ---')) {
+          inProjectStructure = false;
+          filteredLines.push(line);
+          continue;
+        }
+
+        if (inProjectStructure && line.startsWith('=== ')) {
+          // Check if this file is relevant to changed files
+          const filePath = line.replace('=== ', '').replace(' ===', '');
+          const fileExt = filePath.split('.').pop();
+
+          // Include if extension matches changed files or if it's a core file
+          skipFile =
+            !changedExtensions.has(fileExt) &&
+            !filePath.includes('package.json') &&
+            !filePath.includes('config') &&
+            !filePath.includes('src/');
+        }
+
+        if (!skipFile) {
+          filteredLines.push(line);
+        }
+      }
+
+      return filteredLines.join('\n');
+    } catch (error) {
+      core.warning(`⚠️  Error filtering context: ${error.message}`);
+      return context; // Return original context if filtering fails
+    }
+  }
+
+  /**
+   * Summarize large context for later chunks
+   */
+  summarizeContext(context, maxSize) {
+    if (context.length <= maxSize) {
+      return context;
+    }
+
+    // Extract key sections and summarize
+    const sections = context.split('---');
+    const summary = [];
+
+    for (const section of sections) {
+      if (section.includes('Dependencies Context')) {
+        // Keep dependencies as-is (usually small)
+        summary.push(`---${section}`);
+      } else if (section.includes('Project Structure Context')) {
+        // Summarize project structure
+        const lines = section.split('\n').filter(line => line.trim());
+        const keyFiles = lines.slice(0, 5); // Keep first 5 files
+        summary.push(
+          `--- Project Structure Context (Summary) ---\n${keyFiles.join('\n')}\n[Project structure truncated for brevity]\n--- End Project Structure ---`
+        );
+      } else if (section.includes('File Relationships Context')) {
+        // Keep file relationships (usually small)
+        summary.push(`---${section}`);
+      } else if (section.includes('Recent Commits Context')) {
+        // Keep recent commits (usually small)
+        summary.push(`---${section}`);
+      }
+    }
+
+    const summarized = summary.join('\n');
+    if (summarized.length > maxSize) {
+      return (
+        summarized.substring(0, maxSize) + '\n\n--- [Context summarized due to size limits] ---'
+      );
+    }
+
+    return summarized;
+  }
+
+  /**
+   * Get context-aware chunk prompt
+   */
+  getContextAwareChunkPrompt(basePrompt, chunkIndex, totalChunks, context) {
+    if (totalChunks === 1) {
+      const singleChunkPrompt = `${basePrompt}\n\n${context}`;
+      core.info(
+        `📝 Generated single-chunk prompt: ${Math.round(singleChunkPrompt.length / 1024)}KB`
+      );
+      return singleChunkPrompt;
+    }
+
+    // For later chunks, summarize context to save tokens
+    const processedContext =
+      chunkIndex > 0
+        ? this.summarizeContext(context, CONTEXT_CONFIG.MAX_CONTEXT_SIZE / 2)
+        : context;
+
+    const contextSize = Math.round(processedContext.length / 1024);
+    const originalContextSize = Math.round(context.length / 1024);
+
+    if (chunkIndex > 0 && processedContext.length < context.length) {
+      core.info(
+        `📝 Chunk ${chunkIndex + 1}/${totalChunks}: Context summarized ${originalContextSize}KB → ${contextSize}KB`
+      );
+    } else {
+      core.info(`📝 Chunk ${chunkIndex + 1}/${totalChunks}: Using full context (${contextSize}KB)`);
+    }
+
+    const chunkPrompt = `${basePrompt}
+
+**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
+**PROJECT CONTEXT:** ${processedContext}
+
+**INSTRUCTIONS:** 
+- Review this specific portion of the code changes
+- Consider the project context and file relationships provided above
+- Focus on issues that are relevant to this chunk
+- If you find critical issues, mark them clearly
+- Provide specific, actionable feedback for this code section
+- Consider how this chunk relates to the overall changes and project structure
+
+**CODE CHANGES TO REVIEW:**`;
+
+    const totalPromptSize = Math.round(chunkPrompt.length / 1024);
+    core.info(
+      `📝 Generated context-aware prompt for chunk ${chunkIndex + 1}: ${totalPromptSize}KB total`
+    );
+
+    return chunkPrompt;
+  }
+
+  /**
+   * Organize context sections for LLM consumption with better structure
+   */
+  organizeLLMContext(contexts, changedFiles) {
+    if (!contexts || contexts.length === 0) {
+      return '';
+    }
+
+    let organizedContext = '🧠 LLM-FOCUSED CODE REVIEW CONTEXT\n';
+    organizedContext += '='.repeat(60) + '\n\n';
+
+    // Add changed files summary
+    if (changedFiles && changedFiles.length > 0) {
+      organizedContext += '📝 FILES BEING REVIEWED:\n';
+      changedFiles.forEach((file, index) => {
+        organizedContext += `  ${index + 1}. ${file}\n`;
+      });
+      organizedContext += '\n';
+    }
+
+    // Process each context section with LLM-focused formatting
+    contexts.forEach(context => {
+      if (!context.trim()) return;
+
+      // Extract section type and content
+      const lines = context.split('\n');
+      let sectionType = '';
+      let content = '';
+      let inSection = false;
+
+      for (const line of lines) {
+        if (line.includes('---') && line.includes('Context')) {
+          sectionType = line
+            .replace(/---/g, '')
+            .replace(/Context/g, '')
+            .trim();
+          inSection = true;
+          continue;
+        }
+        if (line.includes('--- End')) {
+          inSection = false;
+          continue;
+        }
+        if (inSection) {
+          content += line + '\n';
+        }
+      }
+
+      // Format section based on type with LLM-friendly structure
+      if (sectionType && content.trim()) {
+        const emoji = this.getContextEmoji(sectionType);
+        organizedContext += `${emoji} ${sectionType.toUpperCase()}:\n`;
+        organizedContext += '-'.repeat(40) + '\n';
+        organizedContext += content.trim() + '\n\n';
+      }
+    });
+
+    organizedContext += '='.repeat(60) + '\n';
+    organizedContext += 'END LLM CONTEXT\n\n';
+
+    return organizedContext;
+  }
+
+  /**
+   * Get emoji for context section type
+   */
+  getContextEmoji(sectionType) {
+    const emojiMap = {
+      'semantic code': '🔍',
+      'file relationships': '🔗',
+      architectural: '🏗️',
+      'test context': '🧪',
+      'code patterns': '🔄',
+      security: '🔒',
+      performance: '⚡',
+      configuration: '⚙️',
+      documentation: '📚',
+      dependencies: '📦',
+      'commit history': '📜',
+      'project structure': '📁'
+    };
+    return emojiMap[sectionType.toLowerCase()] || '📋';
+  }
+
+  /**
+   * Extract code definitions (functions, classes, interfaces)
+   */
+  extractCodeDefinitions(fileContent) {
+    const definitions = [];
+    const lines = fileContent.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Function definitions
+      if (trimmed.match(/^(export\s+)?(async\s+)?function\s+\w+/)) {
+        definitions.push(`Function: ${trimmed}`);
+      }
+      // Class definitions
+      else if (trimmed.match(/^(export\s+)?class\s+\w+/)) {
+        definitions.push(`Class: ${trimmed}`);
+      }
+      // Interface/Type definitions
+      else if (trimmed.match(/^(export\s+)?(interface|type)\s+\w+/)) {
+        definitions.push(`Type: ${trimmed}`);
+      }
+      // Const/Let/Var with function assignment
+      else if (trimmed.match(/^(export\s+)?(const|let|var)\s+\w+\s*=\s*(async\s+)?\(/)) {
+        definitions.push(`Function Expression: ${trimmed}`);
+      }
+    }
+
+    return definitions.slice(0, 10); // Limit to 10 most important
+  }
+
+  /**
+   * Analyze incoming relationships (imports/requires)
+   */
+  analyzeIncomingRelationships(fileContent) {
+    const relationships = [];
+    const lines = fileContent.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // ES6 imports
+      if (trimmed.match(/^import\s+.*\s+from\s+['"]([^'"]+)['"]/)) {
+        const match = trimmed.match(/^import\s+.*\s+from\s+['"]([^'"]+)['"]/);
+        if (match) {
+          relationships.push(`Import: ${match[1]} (${trimmed})`);
+        }
+      }
+      // CommonJS requires
+      else if (trimmed.match(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/)) {
+        const match = trimmed.match(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+        if (match) {
+          relationships.push(`Require: ${match[1]} (${trimmed})`);
+        }
+      }
+      // Dynamic imports
+      else if (trimmed.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/)) {
+        const match = trimmed.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+        if (match) {
+          relationships.push(`Dynamic Import: ${match[1]} (${trimmed})`);
+        }
+      }
+    }
+
+    return relationships.slice(0, 8); // Limit to 8 most important
+  }
+
+  /**
+   * Analyze outgoing relationships (exports)
+   */
+  analyzeOutgoingRelationships(fileContent) {
+    const relationships = [];
+    const lines = fileContent.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // ES6 exports
+      if (trimmed.match(/^export\s+(default\s+)?(function|class|const|let|var|interface|type)/)) {
+        relationships.push(`Export: ${trimmed}`);
+      }
+      // CommonJS exports
+      else if (trimmed.match(/module\.exports\s*=/)) {
+        relationships.push(`Module Export: ${trimmed}`);
+      }
+      // Named exports
+      else if (trimmed.match(/^export\s*{/)) {
+        relationships.push(`Named Export: ${trimmed}`);
+      }
+    }
+
+    return relationships.slice(0, 6); // Limit to 6 most important
+  }
+}
+
+module.exports = ContextService;
 
 
 /***/ }),
@@ -30719,12 +31641,51 @@ class FileService {
    */
   getFileDiff(filePath) {
     try {
-      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=3 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
+      // Enhanced diff with more context lines and file structure
+      // Using unified=10 for optimal balance between context and performance
+      const diffCommand = `git diff origin/${this.baseBranch}...HEAD --unified=10 --no-prefix --ignore-blank-lines --ignore-space-at-eol --no-color -- "${filePath}"`;
       const diff = execSync(diffCommand, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }); // 10MB buffer
-      return diff;
+
+      // Add file structure context
+      const fileStructure = this.getFileStructureContext(filePath);
+
+      return `${fileStructure}\n${diff}`;
     } catch (error) {
       core.warning(`⚠️  Could not get diff for ${filePath}: ${error.message}`);
       return '';
+    }
+  }
+
+  /**
+   * Get file structure context (imports, exports, class/function definitions)
+   */
+  getFileStructureContext(filePath) {
+    try {
+      // Get file structure without full content (try multiple approaches)
+      let structure = '';
+      try {
+        // First try git show - get more comprehensive structure
+        const structureCommand = `git show HEAD:${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
+        structure = execSync(structureCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      } catch {
+        // If git show fails, try reading file directly
+        try {
+          const directCommand = `cat ${filePath} 2>/dev/null | head -100 | grep -E '^(import|export|class|function|const|let|var|interface|type|enum|module\\.exports|require\\(|\\/\\*|\\/\\/|^\\s*\\/\\*|^\\s*\\/\\/)' | head -30`;
+          structure = execSync(directCommand, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+        } catch {
+          // If both fail, return basic file header
+          return `--- File: ${filePath} ---\n`;
+        }
+      }
+
+      if (structure.trim()) {
+        return `--- File Structure Context for ${filePath} ---\n${structure}\n--- End Structure ---\n`;
+      } else {
+        return `--- File: ${filePath} ---\n`;
+      }
+    } catch {
+      // If structure extraction fails, continue without it
+      return `--- File: ${filePath} ---\n`;
     }
   }
 
@@ -30933,9 +31894,9 @@ class GitHubService {
   }
 
   /**
-   * Delete previous DeepReview comments on the PR (keep the most recent one)
+   * Delete ALL previous DeepReview comments on the PR
    */
-  async deletePreviousComments() {
+  async deleteAllPreviousComments() {
     try {
       // Get all comments on the PR
       const { data: comments } = await this.octokit.rest.issues.listComments({
@@ -30950,16 +31911,14 @@ class GitHubService {
         comment => comment.body.includes('## 🤖 DeepReview') // Match our bot's header
       );
 
-      // Sort by creation date (newest first) to keep the most recent comment
-      botComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      if (botComments.length === 0) {
+        core.info('ℹ️  No existing DeepReview comments found');
+        return;
+      }
 
-      // Delete all but the most recent comment (if there are multiple)
-      const commentsToDelete = botComments.slice(1); // Skip the first (most recent) comment
-
-      for (const comment of commentsToDelete) {
-        core.info(
-          `🗑️ Deleting old DeepReview comment: ${comment.id} (created: ${comment.created_at})`
-        );
+      // Delete ALL existing DeepReview comments
+      for (const comment of botComments) {
+        core.info(`🗑️ Deleting DeepReview comment: ${comment.id} (created: ${comment.created_at})`);
         await this.octokit.rest.issues.deleteComment({
           owner: this.context.repo.owner,
           repo: this.context.repo.repo,
@@ -30967,15 +31926,7 @@ class GitHubService {
         });
       }
 
-      if (commentsToDelete.length > 0) {
-        core.info(
-          `✅ Deleted ${commentsToDelete.length} old DeepReview comment(s), kept the most recent one`
-        );
-      } else if (botComments.length > 0) {
-        core.info(
-          `ℹ️  Found ${botComments.length} existing DeepReview comment(s), will update the most recent one`
-        );
-      }
+      core.info(`✅ Deleted ${botComments.length} existing DeepReview comment(s)`);
     } catch (error) {
       core.warning(`⚠️  Error deleting previous comments: ${error.message}`);
       // Don't throw error - continue with adding new comment
@@ -30984,6 +31935,7 @@ class GitHubService {
 
   /**
    * Add PR comment to GitHub
+   * Always deletes old comments first, then adds a new comment
    */
   async addPRComment(comment) {
     if (this.context.eventName !== 'pull_request') {
@@ -30992,43 +31944,20 @@ class GitHubService {
     }
 
     try {
-      // First clean up old comments (keep the most recent one)
-      await this.deletePreviousComments();
+      // Step 1: Delete ALL existing DeepReview comments first
+      await this.deleteAllPreviousComments();
 
-      // Check if there's an existing DeepReview comment to update
-      const { data: comments } = await this.octokit.rest.issues.listComments({
+      // Step 2: Add a new comment
+      core.info('💬 Adding new DeepReview comment...');
+      await this.octokit.rest.issues.createComment({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
         issue_number: this.context.issue.number,
-        per_page: 100
+        body: comment
       });
+      core.info('✅ Added new PR comment successfully');
 
-      const existingBotComment = comments
-        .filter(comment => comment.body.includes('## 🤖 DeepReview'))
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]; // Get the most recent
-
-      if (existingBotComment) {
-        // Update the existing comment
-        core.info(`🔄 Updating existing DeepReview comment: ${existingBotComment.id}`);
-        await this.octokit.rest.issues.updateComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          comment_id: existingBotComment.id,
-          body: comment
-        });
-        core.info('✅ Updated existing PR comment successfully');
-      } else {
-        // Create a new comment
-        await this.octokit.rest.issues.createComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          issue_number: this.context.issue.number,
-          body: comment
-        });
-        core.info('✅ Added new PR comment successfully');
-      }
-
-      // Add "post code review" label to the PR
+      // Step 3: Add "post code review" label to the PR
       core.info('🏷️  Adding "post code review" label to PR...');
       await this.addPostCodeReviewLabel();
     } catch (error) {
@@ -31200,15 +32129,17 @@ module.exports = InputService;
 
 const core = __nccwpck_require__(7484);
 const { LLM_PROVIDERS, CONFIG } = __nccwpck_require__(9992);
+const ContextService = __nccwpck_require__(6819);
 
 class LLMService {
-  constructor(provider, maxTokens, temperature) {
+  constructor(provider, maxTokens, temperature, baseBranch) {
     this.provider = provider;
     this.maxTokens = maxTokens;
     this.temperature = temperature;
     this.chunkSize = CONFIG.DEFAULT_CHUNK_SIZE;
     this.maxConcurrentRequests = CONFIG.MAX_CONCURRENT_REQUESTS;
     this.batchDelayMs = CONFIG.BATCH_DELAY_MS;
+    this.contextService = new ContextService(baseBranch);
   }
 
   /**
@@ -31221,31 +32152,48 @@ class LLMService {
   }
 
   /**
-   * Create optimized prompt for chunk processing
+   * Create optimized prompt for chunk processing with context
    */
-  createChunkPrompt(prompt, chunkIndex, totalChunks) {
+  async createChunkPrompt(
+    prompt,
+    chunkIndex,
+    totalChunks,
+    changedFiles = [],
+    sharedContext = null
+  ) {
+    // Use shared context if provided, otherwise generate new one
+    const context =
+      sharedContext || (await this.contextService.getComprehensiveContext(changedFiles));
+
     if (totalChunks === 1) {
-      return prompt;
+      // For single chunk, include full context
+      return `${prompt}\n\n${context}`;
     }
 
-    return `${prompt}
-
-**CHUNK CONTEXT:** This is chunk ${chunkIndex + 1} of ${totalChunks} total chunks.
-**INSTRUCTIONS:** 
-- Review this specific portion of the code changes
-- Focus on issues that are relevant to this chunk
-- If you find critical issues, mark them clearly
-- Provide specific, actionable feedback for this code section
-- Consider how this chunk relates to the overall changes
-
-**CODE CHANGES TO REVIEW:**`;
+    // For multiple chunks, include project context
+    return this.contextService.getContextAwareChunkPrompt(prompt, chunkIndex, totalChunks, context);
   }
 
   /**
    * Process chunks with adaptive concurrency based on chunk count
    */
-  async processChunksIntelligently(prompt, chunks) {
+  async processChunksIntelligently(prompt, chunks, changedFiles = []) {
     const results = [];
+
+    // Generate context once and share across all chunks
+    let sharedContext = null;
+    if (chunks.length > 1) {
+      core.info('🔄 Generating shared context for all chunks...');
+      // Estimate total tokens for all chunks to calculate dynamic context size
+      const totalEstimatedTokens = chunks.reduce(
+        (sum, chunk) => sum + this.estimateTokenCount(prompt, chunk),
+        0
+      );
+      sharedContext = await this.contextService.getComprehensiveContext(
+        changedFiles,
+        totalEstimatedTokens
+      );
+    }
 
     if (chunks.length <= 3) {
       // For small numbers, process sequentially with delays
@@ -31254,7 +32202,14 @@ class LLMService {
       for (let i = 0; i < chunks.length; i++) {
         core.info(`📦 Processing chunk ${i + 1}/${chunks.length}`);
 
-        const result = await this.callLLMChunk(prompt, chunks[i], i, chunks.length);
+        const result = await this.callLLMChunk(
+          prompt,
+          chunks[i],
+          i,
+          chunks.length,
+          changedFiles,
+          sharedContext
+        );
         results.push(result);
 
         if (i + 1 < chunks.length) {
@@ -31272,7 +32227,14 @@ class LLMService {
       for (let i = 0; i < chunks.length; i += maxConcurrent) {
         const batch = chunks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map((chunk, batchIndex) =>
-          this.callLLMChunk(prompt, chunk, i + batchIndex, chunks.length)
+          this.callLLMChunk(
+            prompt,
+            chunk,
+            i + batchIndex,
+            chunks.length,
+            changedFiles,
+            sharedContext
+          )
         );
 
         const batchResults = await Promise.all(batchPromises);
@@ -31357,7 +32319,14 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API for a single chunk with improved error handling and retry logic
    */
-  async callLLMChunk(prompt, diffChunk, chunkIndex, totalChunks) {
+  async callLLMChunk(
+    prompt,
+    diffChunk,
+    chunkIndex,
+    totalChunks,
+    changedFiles = [],
+    sharedContext = null
+  ) {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
 
@@ -31386,7 +32355,13 @@ This chunk was too large to process completely. Here's a summary of what was det
         }
 
         // Create chunk-specific prompt with better context
-        const chunkPrompt = this.createChunkPrompt(prompt, chunkIndex, totalChunks);
+        const chunkPrompt = await this.createChunkPrompt(
+          prompt,
+          chunkIndex,
+          totalChunks,
+          changedFiles,
+          sharedContext
+        );
 
         core.info(
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
@@ -31476,7 +32451,7 @@ This chunk was too large to process completely. Here's a summary of what was det
   /**
    * Call LLM API with improved chunking and intelligent processing
    */
-  async callLLM(prompt, diff) {
+  async callLLM(prompt, diff, changedFiles = []) {
     try {
       const apiKey = this.getApiKey();
       if (!apiKey) {
@@ -31488,13 +32463,17 @@ This chunk was too large to process completely. Here's a summary of what was det
       const estimatedTokens = this.estimateTokenCount(prompt, diff);
 
       core.info(`📊 Diff analysis: ${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens`);
+      core.info(`📁 Changed files passed to LLM: ${changedFiles.length} files`);
+      if (changedFiles.length > 0) {
+        core.info(`📁 Changed files: ${changedFiles.join(', ')}`);
+      }
 
       // If diff is small enough, process it normally
       if (diffSize <= this.chunkSize && estimatedTokens < 150000) {
         core.info(
           `🤖 Processing single diff chunk (${Math.round(diffSize / 1024)}KB, ~${estimatedTokens} tokens)...`
         );
-        return await this.callLLMChunk(prompt, diff, 0, 1);
+        return await this.callLLMChunk(prompt, diff, 0, 1, changedFiles, null);
       }
 
       // Split diff into chunks with intelligent sizing
@@ -31508,7 +32487,7 @@ This chunk was too large to process completely. Here's a summary of what was det
       core.info(`🚀 Processing ${chunks.length} chunks with intelligent batching...`);
 
       // Process chunks with adaptive concurrency
-      const results = await this.processChunksIntelligently(prompt, chunks);
+      const results = await this.processChunksIntelligently(prompt, chunks, changedFiles);
 
       // Filter out failed responses and combine results
       const validResults = results.filter(result => result !== null);
@@ -31627,6 +32606,7 @@ module.exports = LLMService;
  */
 
 const core = __nccwpck_require__(7484);
+const ResponseParserService = __nccwpck_require__(4085);
 const { CONFIG } = __nccwpck_require__(9992);
 
 class LoggingService {
@@ -31760,10 +32740,18 @@ class LoggingService {
   logFinalDecision(shouldBlockMerge, llmResponse) {
     try {
       // Use centralized function to extract issues and metadata
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
       if (extractedData.chunksProcessed > 0) {
-        core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
+        // Log processing statistics
+        const stats = extractedData.processingStats;
+        if (stats.failedChunks > 0) {
+          core.warning(
+            `📊 Chunk processing: ${stats.successfulChunks}/${stats.totalChunks} successful (${stats.successRate.toFixed(1)}% success rate)`
+          );
+        } else {
+          core.info(`📊 Found ${extractedData.chunksProcessed} JSON objects for detailed logging`);
+        }
 
         if (shouldBlockMerge) {
           const criticalIssues = extractedData.issues.filter(
@@ -31835,16 +32823,37 @@ class LoggingService {
       core.info('✅ MERGE APPROVED: No critical issues found. Safe to merge.');
     }
   }
+}
 
+module.exports = LoggingService;
+
+
+/***/ }),
+
+/***/ 4085:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Centralized Response Parser Service
+ * Handles all LLM response parsing to eliminate code duplication
+ * Enhanced with chunk processing consistency, deduplication, and failure handling
+ */
+
+const core = __nccwpck_require__(7484);
+
+class ResponseParserService {
   /**
-   * Extract issues and metadata from LLM response (helper method)
+   * Extract issues and metadata from LLM response with enhanced chunk processing
+   * This is the single source of truth for parsing LLM responses
    */
-  extractIssuesFromResponse(llmResponse) {
+  static extractIssuesFromResponse(llmResponse) {
     const issues = [];
     const summaries = [];
+    const chunkResults = [];
     let totalCriticalCount = 0;
     let totalSuggestionCount = 0;
     let jsonMatches = [];
+    let failedChunks = 0;
 
     try {
       // Try to extract JSON from the new XML-style format first
@@ -31856,31 +32865,49 @@ class LoggingService {
             const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
             const reviewData = JSON.parse(jsonStr);
 
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
+            // Validate chunk data structure
+            const validatedChunk = this.validateChunkData(reviewData, index + 1);
+            chunkResults.push(validatedChunk);
+
+            // Collect summary with consistent chunk indexing
+            if (validatedChunk.summary) {
+              summaries.push(`**Chunk ${index + 1}**: ${validatedChunk.summary}`);
             }
 
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
+            // Collect issues with enhanced context
+            if (validatedChunk.issues && Array.isArray(validatedChunk.issues)) {
+              validatedChunk.issues.forEach(issue => {
+                // Add comprehensive chunk context to issue
                 const issueWithContext = {
                   ...issue,
                   chunk: index + 1,
-                  originalId: issue.id
+                  originalId: issue.id,
+                  chunkIndex: index, // 0-based index for internal processing
+                  chunkTotal: jsonMatches.length,
+                  processedAt: new Date().toISOString()
                 };
                 issues.push(issueWithContext);
               });
             }
 
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
+            // Collect metrics with validation
+            if (validatedChunk.metrics) {
+              totalCriticalCount += validatedChunk.metrics.critical_count || 0;
+              totalSuggestionCount += validatedChunk.metrics.suggestion_count || 0;
             }
           } catch (parseError) {
+            failedChunks++;
             core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
+
+            // Add failed chunk info for tracking
+            chunkResults.push({
+              chunkIndex: index,
+              success: false,
+              error: parseError.message,
+              issues: [],
+              summary: null,
+              metrics: { critical_count: 0, suggestion_count: 0 }
+            });
           }
         });
       }
@@ -31888,17 +32915,127 @@ class LoggingService {
       core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
     }
 
+    // Deduplicate issues across chunks
+    const deduplicatedIssues = this.deduplicateIssues(issues);
+
+    // Calculate processing statistics
+    const successfulChunks = jsonMatches.length - failedChunks;
+    const processingStats = {
+      totalChunks: jsonMatches.length,
+      successfulChunks,
+      failedChunks,
+      successRate: jsonMatches.length > 0 ? (successfulChunks / jsonMatches.length) * 100 : 0
+    };
+
+    // Log processing statistics
+    if (failedChunks > 0) {
+      core.warning(
+        `⚠️  Chunk processing: ${successfulChunks}/${jsonMatches.length} successful (${processingStats.successRate.toFixed(1)}% success rate)`
+      );
+    } else {
+      core.info(`✅ Chunk processing: All ${jsonMatches.length} chunks processed successfully`);
+    }
+
     return {
-      issues,
+      issues: deduplicatedIssues,
       summaries,
       totalCriticalCount,
       totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
+      chunksProcessed: jsonMatches.length,
+      chunkResults,
+      processingStats
     };
+  }
+
+  /**
+   * Validate chunk data structure and ensure required fields
+   */
+  static validateChunkData(chunkData, chunkNumber) {
+    const validated = {
+      chunkIndex: chunkNumber - 1,
+      chunkNumber,
+      success: true,
+      issues: [],
+      summary: null,
+      metrics: { critical_count: 0, suggestion_count: 0 }
+    };
+
+    // Validate summary
+    if (chunkData.summary && typeof chunkData.summary === 'string') {
+      validated.summary = chunkData.summary.trim();
+    }
+
+    // Validate issues array
+    if (chunkData.issues && Array.isArray(chunkData.issues)) {
+      validated.issues = chunkData.issues.filter(issue => {
+        // Basic validation for required fields
+        return (
+          issue &&
+          typeof issue.id === 'string' &&
+          typeof issue.category === 'string' &&
+          typeof issue.severity_proposed === 'string'
+        );
+      });
+    }
+
+    // Validate metrics
+    if (chunkData.metrics && typeof chunkData.metrics === 'object') {
+      validated.metrics = {
+        critical_count: Math.max(0, parseInt(chunkData.metrics.critical_count) || 0),
+        suggestion_count: Math.max(0, parseInt(chunkData.metrics.suggestion_count) || 0)
+      };
+    }
+
+    return validated;
+  }
+
+  /**
+   * Deduplicate issues across chunks based on file, lines, and issue type
+   */
+  static deduplicateIssues(issues) {
+    const issueMap = new Map();
+    const deduplicated = [];
+
+    issues.forEach(issue => {
+      // Create a unique key based on file, lines, and issue type
+      const key = `${issue.file}:${issue.lines?.join('-')}:${issue.category}:${issue.id}`;
+
+      if (issueMap.has(key)) {
+        // Issue already exists, merge chunk information
+        const existingIssue = issueMap.get(key);
+        existingIssue.chunks = existingIssue.chunks || [existingIssue.chunk];
+        if (!existingIssue.chunks.includes(issue.chunk)) {
+          existingIssue.chunks.push(issue.chunk);
+        }
+
+        // Update confidence to highest value
+        if (issue.confidence > existingIssue.confidence) {
+          existingIssue.confidence = issue.confidence;
+        }
+
+        // Update severity score to highest value
+        if (issue.severity_score > existingIssue.severity_score) {
+          existingIssue.severity_score = issue.severity_score;
+        }
+      } else {
+        // New issue, add to map and result
+        const newIssue = {
+          ...issue,
+          chunks: [issue.chunk]
+        };
+        issueMap.set(key, newIssue);
+        deduplicated.push(newIssue);
+      }
+    });
+
+    // Sort issues by severity score (highest first)
+    deduplicated.sort((a, b) => (b.severity_score || 0) - (a.severity_score || 0));
+
+    return deduplicated;
   }
 }
 
-module.exports = LoggingService;
+module.exports = ResponseParserService;
 
 
 /***/ }),
@@ -31911,6 +33048,7 @@ module.exports = LoggingService;
  */
 
 const core = __nccwpck_require__(7484);
+const ResponseParserService = __nccwpck_require__(4085);
 const { CONFIG, getLanguageForFile } = __nccwpck_require__(9992);
 
 class ReviewService {
@@ -32074,67 +33212,6 @@ class ReviewService {
   }
 
   /**
-   * Extract issues and metadata from LLM response
-   */
-  extractIssuesFromResponse(llmResponse) {
-    const issues = [];
-    const summaries = [];
-    let totalCriticalCount = 0;
-    let totalSuggestionCount = 0;
-    let jsonMatches = [];
-
-    try {
-      // Try to extract JSON from the new XML-style format first
-      jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
-
-      if (jsonMatches.length > 0) {
-        jsonMatches.forEach((match, index) => {
-          try {
-            const jsonStr = match.replace(/<JSON>\s*/, '').replace(/\s*<\/JSON>/, '');
-            const reviewData = JSON.parse(jsonStr);
-
-            // Collect summary
-            if (reviewData.summary) {
-              summaries.push(`**Chunk ${index + 1}**: ${reviewData.summary}`);
-            }
-
-            // Collect issues
-            if (reviewData.issues && Array.isArray(reviewData.issues)) {
-              reviewData.issues.forEach(issue => {
-                // Add chunk context to issue
-                const issueWithContext = {
-                  ...issue,
-                  chunk: index + 1,
-                  originalId: issue.id
-                };
-                issues.push(issueWithContext);
-              });
-            }
-
-            // Collect metrics
-            if (reviewData.metrics) {
-              totalCriticalCount += reviewData.metrics.critical_count || 0;
-              totalSuggestionCount += reviewData.metrics.suggestion_count || 0;
-            }
-          } catch (parseError) {
-            core.warning(`⚠️  Error parsing JSON object ${index + 1}: ${parseError.message}`);
-          }
-        });
-      }
-    } catch (error) {
-      core.warning(`⚠️  Error extracting issues from response: ${error.message}`);
-    }
-
-    return {
-      issues,
-      summaries,
-      totalCriticalCount,
-      totalSuggestionCount,
-      chunksProcessed: jsonMatches.length
-    };
-  }
-
-  /**
    * Generate PR comment content with enhanced JSON parsing
    */
   generatePRComment(
@@ -32154,7 +33231,7 @@ class ReviewService {
       : 'All changes are safe and well-implemented';
 
     // Extract issues and metadata using centralized function
-    const extractedData = this.extractIssuesFromResponse(llmResponse);
+    const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
     // Create review summary
     let reviewSummary = '';
@@ -32174,7 +33251,12 @@ class ReviewService {
         issueDetails += `### 🚨 **Critical Issues (${criticalIssues.length})**\n`;
         criticalIssues.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🔴 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -32199,7 +33281,12 @@ class ReviewService {
         issueDetails += `### 💡 **Suggestions (${suggestions.length})**\n`;
         suggestions.forEach(issue => {
           const language = getLanguageForFile(issue.file);
-          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (Chunk ${issue.chunk})\n`;
+          // Show chunk information (handle both single chunk and multiple chunks)
+          const chunkInfo =
+            issue.chunks && issue.chunks.length > 1
+              ? `Chunks ${issue.chunks.join(', ')}`
+              : `Chunk ${issue.chunk}`;
+          issueDetails += `🟡 ${issue.originalId} - ${issue.category.toUpperCase()} (${chunkInfo})\n`;
           if (issue.snippet) {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
@@ -32271,7 +33358,7 @@ ${
   ) {
     try {
       // Extract issues from LLM response
-      const extractedData = this.extractIssuesFromResponse(llmResponse);
+      const extractedData = ResponseParserService.extractIssuesFromResponse(llmResponse);
 
       // Prepare issues for logging (simplified format)
       const logIssues = extractedData.issues.map(issue => ({
@@ -34510,7 +35597,8 @@ class GitHubActionsReviewer {
     this.llmService = new LLMService(
       this.inputs.provider,
       this.inputs.maxTokens,
-      this.inputs.temperature
+      this.inputs.temperature,
+      this.baseBranch
     );
   }
 
@@ -34547,7 +35635,7 @@ class GitHubActionsReviewer {
     core.info(`📝 Using ${this.inputs.language} review prompt`);
       
     const fullDiff = this.fileService.getFullDiff();
-    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff);
+    const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff, changedFiles);
     
     if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge

@@ -25,7 +25,7 @@ class MockInputService {
     return this.inputs;
   }
 
-  setApiKeyEnvironment(inputs) {
+  setApiKeyEnvironment(_inputs) {
     // Mock setting API key environment
     return true;
   }
@@ -59,7 +59,7 @@ class MockLLMService {
     this.temperature = 0;
   }
 
-  async callLLM(prompt, diff) {
+  async callLLM(_prompt, _diff) {
     return {
       provider: this.provider,
       response: 'Mock LLM response with security issues found',
@@ -138,7 +138,7 @@ class MockGitHubService {
 }
 
 class MockLoggingService {
-  logReviewDetails(department, team, baseBranch, provider, language, pathToFiles, ignorePatterns, chunkSize, maxConcurrentRequests, batchDelayMs) {
+  logReviewDetails(_department, _team, _baseBranch, _provider, _language, _pathToFiles, _ignorePatterns, _chunkSize, _maxConcurrentRequests, _batchDelayMs) {
     return true;
   }
 
