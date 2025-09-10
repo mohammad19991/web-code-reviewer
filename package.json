@@ -4,7 +4,7 @@
   "description": "Automated code review using LLM (Claude/OpenAI) for GitHub PRs",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.js -o dist",
+    "build": "node scripts/update-version.js && ncc build src/index.js -o dist",
     "prepare": "husky",
     "test": "jest",
     "test:watch": "jest --watch",
