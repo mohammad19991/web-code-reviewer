@@ -24,7 +24,9 @@ Determinism & Output Contract
   scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".
+- If code contains debounced functions AND a corresponding cleanup calling \`.cancel()\` in \`useEffect\`, classify as SAFE. Do not emit a performance issue.
+- Only emit this performance issue if \`.cancel()\` cleanup is missing or unclear even with full snippet.`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring
