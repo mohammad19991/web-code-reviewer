@@ -12,6 +12,35 @@ const GitHubService = require('./services/github-service');
 const ReviewService = require('./services/review-service');
 const LoggingService = require('./services/logging-service');
 
+// Version information - updated during build process
+const VERSION_INFO = {
+  version: '1.14.10',
+  name: 'web-code-reviewer',
+  description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
+};
+
+// Get and log current version
+let versionInfo = VERSION_INFO.version;
+let packageName = VERSION_INFO.name;
+let description = VERSION_INFO.description;
+
+// Try to get version from package.json if available (for development)
+try {
+  const packageJson = require('../package.json');
+  versionInfo = packageJson.version;
+  packageName = packageJson.name;
+  description = packageJson.description;
+} catch (error) {
+  // In production (dist/index.js), use embedded version info
+  // This is expected and not an error
+}
+
+core.info(`🚀 GitHub Actions Deep Reviewer v${versionInfo}`);
+core.info(`📦 Package: ${packageName}`);
+core.info(`📝 Description: ${description}`);
+core.info(`🔧 Node.js: ${process.version}`);
+core.info(`⏰ Started at: ${new Date().toISOString()}\n`);
+
 /**
  * GitHub Actions Deep Reviewer - Main orchestrator
  * Now uses modular services for better maintainability
