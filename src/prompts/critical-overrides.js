@@ -2,13 +2,106 @@
  * QA Automation critical overrides
  */
 const QA_CRITICAL_OVERRIDES = {
-  qa: `Auto-critical overrides (regardless of score)
-- Non-deterministic selectors that can cause flakiness in web tests (avoid brittle CSS/XPath; prefer data-test-id or accessibility queries).
-- Unbounded retries or long sleeps (cy.wait) that can significantly increase execution time or make tests flaky.
-- Tests that disable core security controls in the browser (e.g., SSL/TLS validation, insecure flags).
-- Sensitive artifacts (logs, screenshots, videos) exposing PII or secrets published outside QA infra.
-- Skipped or force-passed tests (it.skip, it.only) committed into main branches.
-  `
+  qa_web: `Auto-Critical Overrides for Cypress Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Non-deterministic selectors (nth-child, complex XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=5, confidence=0.9.
+- Hardcoded waits (cy.wait 3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
+- Focused/skipped tests (it.only, it.skip, xit) committed to main branches → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=5, confidence=0.9.
+- Tests hitting real external services without mocking → Anchor: HTTP request to external domain. Fix: mock with cy.intercept(). Default: evidence=4, confidence=0.8.
+- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=4, confidence=0.8.
+- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive names or proper organization → Anchor: unclear test/describe name. Fix: use descriptive test names and proper grouping. Default: evidence=3, confidence=0.7.
+- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.7.
+- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled security bypasses are acceptable in automation context.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Brittle selector: cy.get('.btn:nth-child(2)') → cy.get('[data-testid="submit-btn"]').
+- Long wait (critical): cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
+- Medium wait (suggestion): cy.wait(3000) → consider cy.intercept() or conditional waits.
+- Focused test: it.only('test') → it('test').`,
+
+  qa_android: `Auto-Critical Overrides for Appium Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Non-deterministic locators (absolute XPath, index-based selectors, UI hierarchy dependencies) → Anchor: brittle locator. Fix: use resource-id or accessibility-id. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep ≥ 5000ms) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use WebDriverWait with ExpectedConditions. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep 3000-4999ms) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider WebDriverWait with ExpectedConditions. Default: evidence=3, confidence=0.6.
+- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
+- Tests without app state isolation → Anchor: @Test without app reset. Fix: add driver.resetApp() in @BeforeEach. Default: evidence=4, confidence=0.8.
+- Tests hitting real backend services without mocking → Anchor: HTTP client call to external service. Fix: mock with WireMock or stubs. Default: evidence=4, confidence=0.8.
+- Tests bypassing device security without proper justification → Anchor: security bypass code. Fix: document justification or use proper test accounts. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
+- Missing Page Object patterns causing code duplication → Anchor: repeated locator/action code. Fix: extract to page object classes. Default: evidence=3, confidence=0.7.
+- Missing proper exception handling in test flows → Anchor: @Test without try-catch for expected failures. Fix: add appropriate exception handling. Default: evidence=3, confidence=0.7.
+- Unbounded operations or loops in test methods → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled device security bypasses are acceptable in automation context.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Brittle locator: "//android.widget.Button[2]" → By.id("submit_button").
+- Long wait (critical): Thread.sleep(5000) → wait.until(ExpectedConditions.visibilityOf(element)).
+- Medium wait (suggestion): Thread.sleep(3000) → consider WebDriverWait with ExpectedConditions.
+- Ignored test: @Ignore @Test → @Test (fix or remove).`,
+
+  qa_backend: `Auto-Critical Overrides for RestAssured API Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Tests hitting production/live endpoints → Anchor: baseURI to production domain. Fix: use test environment endpoints. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep ≥ 5000ms in API tests) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use polling with await() or proper retry logic. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep 3000-4999ms in API tests) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider polling with await() or proper retry logic. Default: evidence=3, confidence=0.6.
+- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
+- Tests without proper data isolation → Anchor: @Test without cleanup. Fix: add @AfterEach cleanup or use test transactions. Default: evidence=4, confidence=0.8.
+- Tests hitting real external services without mocking → Anchor: HTTP call to external domain. Fix: use WireMock or service virtualization. Default: evidence=4, confidence=0.8.
+- Tests disabling SSL verification without proper guards → Anchor: .relaxedHTTPSValidation() call. Fix: guard with environment checks or use proper certificates. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
+- Missing response schema validation → Anchor: API call without schema check. Fix: add JSON schema validation. Default: evidence=3, confidence=0.7.
+- Missing proper assertion patterns → Anchor: test without comprehensive response validation. Fix: add proper status code and content assertions. Default: evidence=3, confidence=0.7.
+- Unbounded loops or retry logic in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled SSL relaxation are acceptable in automation context when properly isolated.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Production URL: baseURI("https://api.prod.com") → baseURI("https://api.test.com").
+- Long wait (critical): Thread.sleep(5000) → await().atMost(10, SECONDS).until(() -> condition).
+- Medium wait (suggestion): Thread.sleep(3000) → consider await() with proper retry logic.
+- Missing validation: .get("/users") → .get("/users").then().body(matchesJsonSchema(schema)).`
 };
 
 /**
@@ -142,9 +235,9 @@ Tests (≤2 lines):
 - Path traversal: "../../etc/passwd" rejected.
 `,
 
-  qa_web: QA_CRITICAL_OVERRIDES.qa,
-  qa_android: QA_CRITICAL_OVERRIDES.qa,
-  qa_backend: QA_CRITICAL_OVERRIDES.qa
+  qa_web: QA_CRITICAL_OVERRIDES.qa_web,
+  qa_android: QA_CRITICAL_OVERRIDES.qa_android,
+  qa_backend: QA_CRITICAL_OVERRIDES.qa_backend
 };
 
 module.exports = LANGUAGE_CRITICAL_OVERRIDES;
