@@ -103,6 +103,45 @@ jobs:
     path_to_files: 'app/,resources/'
     team: 'fullstack-team'
     department: 'web'
+
+# QA Web - Cypress Test Review
+- name: Review Cypress Tests
+  uses: tajawal/web-code-reviewer@latest
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
+  with:
+    language: 'qa_web'
+    claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
+    path_to_files: 'cypress/,src/test/,test/'
+    ignore_patterns: '.json,.md,.lock'  # Allow .spec.js, .test.js, .cy.js
+    team: 'qa-web'
+    department: 'quality-assurance'
+
+# QA Android - Appium Test Review  
+- name: Review Appium Tests
+  uses: tajawal/web-code-reviewer@latest
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
+  with:
+    language: 'qa_android'
+    claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
+    path_to_files: 'src/test/,app/src/test/'
+    ignore_patterns: '.json,.md,.lock'  # Allow Test.java files
+    team: 'qa-android'
+    department: 'quality-assurance'
+
+# QA Backend - API Test Review
+- name: Review API Tests
+  uses: tajawal/web-code-reviewer@latest
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required: GitHub token for API access
+  with:
+    language: 'qa_backend'
+    claude_api_key: ${{ secrets.CLAUDE_API_KEY }}
+    path_to_files: 'src/test/,api-tests/'
+    ignore_patterns: '.json,.md,.lock'  # Allow Test.java files
+    team: 'qa-backend'
+    department: 'quality-assurance'
 ```
 
 ### Advanced Configuration
@@ -193,6 +232,39 @@ jobs:
   - Input validation
   - Performance optimization
   - Modern PHP practices
+
+### QA Web Automation (`qa_web`)
+- **File Extensions**: `.js`, `.spec.js`, `.test.js`, `.cy.js`, `.feature`
+- **Framework**: Cypress for web automation
+- **Focus Areas**:
+  - Test reliability and stability
+  - Cypress best practices and patterns
+  - Locator strategy optimization
+  - Wait strategy improvements
+  - Test organization and maintainability
+  - CI/CD pipeline compatibility
+
+### QA Android Automation (`qa_android`)
+- **File Extensions**: `.java`, `Test.java`, `Spec.java`
+- **Framework**: Appium + Java for Android native app automation
+- **Focus Areas**:
+  - Mobile test reliability patterns
+  - Appium best practices
+  - Device compatibility handling
+  - Resource management optimization
+  - Test isolation and cleanup
+  - Android-specific automation patterns
+
+### QA Backend Automation (`qa_backend`)
+- **File Extensions**: `.java`, `Test.java`, `ApiTest.java`
+- **Framework**: RestAssured + Java for API automation
+- **Focus Areas**:
+  - API testing best practices
+  - Response validation patterns
+  - Test data management
+  - Error scenario coverage
+  - Performance considerations
+  - Environment configuration handling
 
 ## 📊 Enhanced Review Output
 
