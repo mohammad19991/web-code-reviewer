@@ -30418,19 +30418,26 @@ Policy:
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
-Auto-critical items (test automation principles):
-- Non-deterministic selectors (nth-child, complex XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=5, confidence=0.9.
-- Hardcoded waits (cy.wait 3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
-- Focused/skipped tests (it.only, it.skip, xit) committed to main branches → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=5, confidence=0.9.
-- Tests hitting real external services without mocking → Anchor: HTTP request to external domain. Fix: mock with cy.intercept(). Default: evidence=4, confidence=0.8.
-- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=4, confidence=0.8.
-- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=4, confidence=0.8.
+Auto-critical items (internal qa-frontend-cypress architectural violations):
+- Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO. Default: evidence=5, confidence=0.9.
+- Direct selectors in test files → Anchor: cy.get() with selector string in spec.js. Fix: use CC functions instead of direct PO imports. Default: evidence=4, confidence=0.8.
+- Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern. Default: evidence=4, confidence=0.8.
+- Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports. Default: evidence=5, confidence=0.9.
+- Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers. Default: evidence=5, confidence=0.9.
+- API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/. Default: evidence=4, confidence=0.8.
+- Missing JSDoc documentation in CC files → Anchor: export function without /** comment. Fix: add JSDoc with @param, @returns, and description following project standards. Default: evidence=4, confidence=0.8.
+- Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure. Default: evidence=5, confidence=0.9.
+- Naming convention violations → Anchor: file not following [module][component]PO.js or [module][component]CC.js pattern. Fix: rename following established naming convention. Default: evidence=4, confidence=0.8.
+- README.md files in subdirectories → Anchor: new README.md file in subdirectory. Fix: remove auto-generated README.md files, keep only project root README.md. Default: evidence=4, confidence=0.8.
 
-Auto-critical items (code maintainability & reusability):
-- Tests without descriptive names or proper organization → Anchor: unclear test/describe name. Fix: use descriptive test names and proper grouping. Default: evidence=3, confidence=0.7.
-- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.7.
-- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+Auto-critical items (general cypress/web automation best practices):
+- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=3, confidence=0.8.
+- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=3, confidence=0.8.
+- Non-deterministic selectors (brittle XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=3, confidence=0.8.
+- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.8.
+- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=3, confidence=0.8.
+- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=3, confidence=0.8.
+- Focused/skipped tests (it.only, it.skip, xit) committed → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=3, confidence=0.8.
 
 Note: Test credentials and controlled security bypasses are acceptable in automation context.
 
@@ -30440,10 +30447,18 @@ Evidence defaults:
 - Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
 
 Tests (≤2 lines examples):
+Internal architectural violations:
+- PO with action: export function click() → move to CC file, keep only selectors in PO.
+- Direct selector: cy.get('[data-testid="btn"]') in test → use CC function like clickButton().
+- Hardcoded config: const pos = 'sa' → import { posSa } from customHelpers/configuration/posConfiguration.
+- Missing JSDoc: export function search() → /** @description Performs search */ export function search().
+- Wrong directory: desktop/flights/search.js → fixtures/pageClasses/desktop/flights/flightsSearch/.
+
+General cypress best practices:
+- Long wait: cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
 - Brittle selector: cy.get('.btn:nth-child(2)') → cy.get('[data-testid="submit-btn"]').
-- Long wait (critical): cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
-- Medium wait (suggestion): cy.wait(3000) → consider cy.intercept() or conditional waits.
-- Focused test: it.only('test') → it('test').`,
+- Focused test: it.only('test') → it('test').
+- Auto-generated README: cypress/e2e/README.md → remove file, keep only root README.md.`,
 
   qa_android: `Auto-Critical Overrides for Appium Tests — deterministic and absolute
 Policy:
@@ -30693,35 +30708,18 @@ module.exports = LANGUAGE_CRITICAL_OVERRIDES;
 const QA_SPECIFIC_CHECKS = {
   qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
 
-Test Reliability & Stability:
-- Hardcoded waits (cy.wait ≥ 3000ms) → Anchor: cy.wait(number) call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
-- Brittle selectors (nth-child, complex CSS, auto-generated classes) → Anchor: selector string. Default: evidence=4, confidence=0.8.
-- Missing proper waits (no cy.should or cy.intercept before actions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
-- Tests without proper isolation (shared beforeEach state) → Anchor: shared variable usage. Default: evidence=3, confidence=0.7.
-- Missing cleanup hooks (no afterEach for browser state) → Anchor: test without cleanup. Default: evidence=3, confidence=0.7.
+Suggestions (internal qa-frontend-cypress architectural best practices):
+- Inline test data instead of using helpers → Anchor: hardcoded test data in spec files. Fix: use customHelpers/[module] functions for data generation. Default: evidence=3, confidence=0.7.
+- Not using localizedStrings → Anchor: hardcoded text strings in tests/CC. Fix: import from fixtures/localizedStrings/[module]/. Default: evidence=2, confidence=0.6.
+- Missing platform separation → Anchor: desktop code in pwa directory or vice versa. Fix: ensure platform-specific code in correct directory. Default: evidence=3, confidence=0.7.
+- Reimplementing existing helper logic → Anchor: duplicated logic that exists in customHelpers. Fix: import and use existing helper functions. Default: evidence=2, confidence=0.6.
+- Not using environment configuration helpers → Anchor: hardcoded environment-specific values. Fix: use posConfiguration or environment helpers. Default: evidence=2, confidence=0.6.
 
-Cypress Best Practices:
-- Missing cy.intercept() for API calls → Anchor: cy.request or network call. Default: evidence=3, confidence=0.7.
-- Not using cy.session() for authentication → Anchor: repeated login in beforeEach. Default: evidence=3, confidence=0.7.
-- Accessing DOM elements without proper commands → Anchor: direct DOM access. Default: evidence=2, confidence=0.6.
-- Missing custom commands for repeated actions → Anchor: duplicated action sequences. Default: evidence=2, confidence=0.5.
-- Using cy.get() without data-testid or accessibility attributes → Anchor: CSS selector usage. Default: evidence=2, confidence=0.6.
-
-Test Organization & Maintainability:
-- Tests without descriptive names → Anchor: it() or describe() with unclear names. Default: evidence=2, confidence=0.6.
-- Missing Page Object Model for complex flows → Anchor: repeated selector/action patterns. Default: evidence=2, confidence=0.5.
-- Monolithic test methods (>100 lines) → Anchor: large test function. Default: evidence=2, confidence=0.6.
-- Missing test categorization (no proper describe blocks) → Anchor: flat test structure. Default: evidence=2, confidence=0.5.
-
-Performance & Resource Management:
-- Loading large fixtures unnecessarily → Anchor: fixture loading. Default: evidence=2, confidence=0.6.
-- Not using cy.session() causing repeated authentication → Anchor: repeated login calls. Default: evidence=3, confidence=0.7.
-- Missing viewport configuration for responsive tests → Anchor: responsive test without viewport. Default: evidence=2, confidence=0.5.
-
-Test Data & Environment:
-- Hardcoded environment URLs in test code → Anchor: URL string. Default: evidence=3, confidence=0.7.
-- Missing proper test data cleanup → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
-- Using production-like data without proper isolation → Anchor: real data usage. Default: evidence=2, confidence=0.6.
+Suggestions (general cypress/web automation best practices):
+- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows. Default: evidence=3, confidence=0.7.
+- Medium hardcoded waits (3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider using cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
+- Large test methods (>100 lines) → Anchor: test function exceeding 100 lines. Fix: break into smaller, focused test cases. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization → Anchor: tests without @tags or proper describe structure. Fix: add appropriate test tags and organization. Default: evidence=2, confidence=0.5.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
@@ -35859,7 +35857,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.19","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.20","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -36001,7 +35999,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.19',
+  version: '1.14.20',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
