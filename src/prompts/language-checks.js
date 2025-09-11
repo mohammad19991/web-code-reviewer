@@ -1,4 +1,3 @@
-
 /**
  * QA Automation specific checks
  */
