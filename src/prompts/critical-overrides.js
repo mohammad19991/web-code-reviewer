@@ -176,6 +176,7 @@ Policy:
 Auto-critical items (with anchors & fixes):
 - eval/exec on user input → Anchor: eval/exec call. Fix: remove dynamic eval; use safe parser/dispatch map.
 - pickle.load or unsafe yaml.load on untrusted data → Anchor: call site. Fix: yaml.safe_load; avoid pickle for untrusted inputs.
+- pandas.read_pickle/joblib.load/numpy.load(allow_pickle=True) on untrusted data → Anchor: call site. Fix: use safe formats (CSV/JSON/Parquet); numpy.load with allow_pickle=False.
 - subprocess/os.system with shell=True + untrusted input → Anchor: call site. Fix: list args, shell=False, validate inputs.
 - Raw SQL via f-strings/%/.format (no params) → Anchor: execute call. Fix: parameterized queries/placeholders.
 - HTTP verify=False (requests/urllib) → Anchor: call site. Fix: verify TLS; pin cert/CA; guard dev-only.
@@ -207,6 +208,8 @@ Auto-critical items:
 - SQL injection via string concatenation in Statement/native queries. Fix: PreparedStatement/ORM parameters.
 - Command injection via Runtime.exec/ProcessBuilder with untrusted strings. Fix: arg lists, allowlists, no shell.
 - Unsafe deserialization of untrusted data (ObjectInputStream, unsafe Jackson settings). Fix: avoid Java serialization; strict schema; ObjectInputFilter.
+- Log4j/logback JNDI/expression injection in log statements. Anchor: logger call with user input. Fix: upgrade Log4j 2.17+; disable JNDI lookups.
+- XXE in XML parsers without secure processing. Anchor: DocumentBuilder/SAXParser config. Fix: setFeature(DISALLOW_DOCTYPE_DECL, true); secure defaults.
 - XSS: unescaped user input in JSP/Thymeleaf/FreeMarker/HTML. Fix: auto-escape/encoders.
 - Missing authentication/authorization on sensitive endpoints. Fix: Spring Security guards (RBAC/ABAC).
 - CSRF disabled/missing for state-changing endpoints. Fix: enable CSRF tokens.
