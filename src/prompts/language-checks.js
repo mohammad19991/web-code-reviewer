@@ -175,6 +175,7 @@ Best practices:
 Concurrency & Async:
 - Thread/task leaks (no join/cancel), unbounded executors. Default 4, 0.8.
 - Blocking calls (time.sleep/CPU loops) inside async def without executor. Default 4, 0.8.
+- asyncio.create_task() without exception handling or cancellation cleanup. Default 4, 0.8.
 
 Web (Django/Flask/FastAPI):
 - CSRF disabled/missing on state-changing routes → auto-critical.
@@ -190,6 +191,8 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
   
 Performance:
 - N+1 queries / queries in loops. Anchor loop + query. Default 4,0.8.
+- Reflection/annotation scanning in hot paths. Anchor: getClass().getMethod()/reflection calls. Default 4,0.8.
+- Large object creation in tight loops (StringBuilder, collections). Anchor: new in loop. Default 3,0.7.
 - O(n^2) hot paths in request/critical code. Anchor nested loops. Default 3,0.7.
 - Blocking I/O without timeouts/retries. Anchor client call. Default 3,0.7.
 - Inefficient collections/boxing; String concat in loops. Anchor site. Default 2–3,0.6–0.7.
@@ -204,6 +207,8 @@ Maintainability:
 
 Best practices:
 - Missing Bean Validation on DTO/controller params. Anchor annotations/sigs. Default 3,0.7.
+- Resource leaks: missing AutoCloseable.close() or try-with-resources. Anchor: resource creation without proper cleanup. Default 4,0.8.
+- JPA N+1 from lazy loading without fetch joins/graphs. Anchor: entity access in loop. Default 4,0.8.
 - Null handling/Optional misuse. Anchor method sigs. Default 2,0.6.
 - Concurrency misuse (unsafe publish, non-threadsafe collections). Anchor shared field + access. Default 4,0.8.
 - Streams misuse in hot paths. Anchor pipeline. Default 2–3,0.6–0.7.
@@ -221,6 +226,8 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
 
 Performance:
 - N+1: queries in loops. Anchor loop + query. Default 4,0.8.
+- Memory exhaustion from unbounded user input (file uploads, POST data). Anchor: processing without limits. Default 4,0.8.
+- Inefficient regex with backtracking (ReDoS). Anchor: preg_* with complex patterns. Default 3,0.7.
 - Expensive ops in request path (large arrays, heavy regex, repeated json_encode). Anchor site. Default 3,0.7.
 - Unbounded output buffering. Anchor buffering usage. Default 2,0.6.
 
@@ -243,6 +250,12 @@ Web (Laravel/Symfony/Vanilla):
 - display_errors/Debug enabled in prod. Anchor config. Default 3,0.7.
 - Session/cookie flags (secure/httponly/samesite) missing. Anchor config. Default 3,0.7.
 - File uploads missing validation or stored under webroot. Anchor handler. Default 3,0.7.
+- XML external entity (XXE) in XML parsing without libxml_disable_entity_loader(). Anchor: SimpleXML/DOMDocument. Default 4,0.8.
+- Server-Side Template Injection (SSTI) in Twig/Smarty with user-controlled templates. Anchor: template rendering. Default 4,0.8.
+
+Modern PHP Security:
+- Composer packages with known vulnerabilities (check composer.lock changes). Anchor: new dependencies. Default 3,0.7.
+- Missing Content Security Policy headers on HTML responses. Anchor: response headers. Default 3,0.7.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 

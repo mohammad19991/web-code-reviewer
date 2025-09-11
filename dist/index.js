@@ -30420,12 +30420,13 @@ Policy:
 
 Auto-critical items (internal qa-frontend-cypress architectural violations):
 - Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO. Default: evidence=5, confidence=0.9.
-- Direct selectors in test files → Anchor: cy.get() with selector string in spec.js. Fix: use CC functions instead of direct PO imports. Default: evidence=4, confidence=0.8.
+- Direct selectors in test files → Anchor: cy.get(), $body.find(), or any selector usage in spec.js files. Fix: use CC functions instead of direct selector calls. Default: evidence=4, confidence=0.8.
 - Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern. Default: evidence=4, confidence=0.8.
 - Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports. Default: evidence=5, confidence=0.9.
 - Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers. Default: evidence=5, confidence=0.9.
 - API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/. Default: evidence=4, confidence=0.8.
-- Missing JSDoc documentation in CC files → Anchor: export function without /** comment. Fix: add JSDoc with @param, @returns, and description following project standards. Default: evidence=4, confidence=0.8.
+- Configuration helper functions in spec.js files → Anchor: configuration-related functions like const setupPOS, const configHelper in spec.js. Fix: move to customHelpers/configuration/ directory and import. Default: evidence=4, confidence=0.8.
+- Action/utility methods in spec.js files → Anchor: action methods, utility functions, or reusable logic blocks in spec.js. Fix: move to CC files and import, keep spec.js for test scenarios only. Default: evidence=4, confidence=0.8.
 - Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure. Default: evidence=5, confidence=0.9.
 - Naming convention violations → Anchor: file not following [module][component]PO.js or [module][component]CC.js pattern. Fix: rename following established naming convention. Default: evidence=4, confidence=0.8.
 - README.md files in subdirectories → Anchor: new README.md file in subdirectory. Fix: remove auto-generated README.md files, keep only project root README.md. Default: evidence=4, confidence=0.8.
@@ -30449,7 +30450,9 @@ Evidence defaults:
 Tests (≤2 lines examples):
 Internal architectural violations:
 - PO with action: export function click() → move to CC file, keep only selectors in PO.
-- Direct selector: cy.get('[data-testid="btn"]') in test → use CC function like clickButton().
+- Direct selector: cy.get('[data-testid="btn"]') in spec.js → use CC function like clickButton().
+- Config helper in spec: const setupPOS = (posKey) => { ... } in spec.js → move to customHelpers/configuration/ and import.
+- Action method in spec: const clickButton = () => { ... } in spec.js → move to CC file and import.
 - Hardcoded config: const pos = 'sa' → import { posSa } from customHelpers/configuration/posConfiguration.
 - Missing JSDoc: export function search() → /** @description Performs search */ export function search().
 - Wrong directory: desktop/flights/search.js → fixtures/pageClasses/desktop/flights/flightsSearch/.
@@ -30601,6 +30604,7 @@ Policy:
 Auto-critical items (with anchors & fixes):
 - eval/exec on user input → Anchor: eval/exec call. Fix: remove dynamic eval; use safe parser/dispatch map.
 - pickle.load or unsafe yaml.load on untrusted data → Anchor: call site. Fix: yaml.safe_load; avoid pickle for untrusted inputs.
+- pandas.read_pickle/joblib.load/numpy.load(allow_pickle=True) on untrusted data → Anchor: call site. Fix: use safe formats (CSV/JSON/Parquet); numpy.load with allow_pickle=False.
 - subprocess/os.system with shell=True + untrusted input → Anchor: call site. Fix: list args, shell=False, validate inputs.
 - Raw SQL via f-strings/%/.format (no params) → Anchor: execute call. Fix: parameterized queries/placeholders.
 - HTTP verify=False (requests/urllib) → Anchor: call site. Fix: verify TLS; pin cert/CA; guard dev-only.
@@ -30632,6 +30636,8 @@ Auto-critical items:
 - SQL injection via string concatenation in Statement/native queries. Fix: PreparedStatement/ORM parameters.
 - Command injection via Runtime.exec/ProcessBuilder with untrusted strings. Fix: arg lists, allowlists, no shell.
 - Unsafe deserialization of untrusted data (ObjectInputStream, unsafe Jackson settings). Fix: avoid Java serialization; strict schema; ObjectInputFilter.
+- Log4j/logback JNDI/expression injection in log statements. Anchor: logger call with user input. Fix: upgrade Log4j 2.17+; disable JNDI lookups.
+- XXE in XML parsers without secure processing. Anchor: DocumentBuilder/SAXParser config. Fix: setFeature(DISALLOW_DOCTYPE_DECL, true); secure defaults.
 - XSS: unescaped user input in JSP/Thymeleaf/FreeMarker/HTML. Fix: auto-escape/encoders.
 - Missing authentication/authorization on sensitive endpoints. Fix: Spring Security guards (RBAC/ABAC).
 - CSRF disabled/missing for state-changing endpoints. Fix: enable CSRF tokens.
@@ -30879,6 +30885,7 @@ Best practices:
 Concurrency & Async:
 - Thread/task leaks (no join/cancel), unbounded executors. Default 4, 0.8.
 - Blocking calls (time.sleep/CPU loops) inside async def without executor. Default 4, 0.8.
+- asyncio.create_task() without exception handling or cancellation cleanup. Default 4, 0.8.
 
 Web (Django/Flask/FastAPI):
 - CSRF disabled/missing on state-changing routes → auto-critical.
@@ -30894,6 +30901,8 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
   
 Performance:
 - N+1 queries / queries in loops. Anchor loop + query. Default 4,0.8.
+- Reflection/annotation scanning in hot paths. Anchor: getClass().getMethod()/reflection calls. Default 4,0.8.
+- Large object creation in tight loops (StringBuilder, collections). Anchor: new in loop. Default 3,0.7.
 - O(n^2) hot paths in request/critical code. Anchor nested loops. Default 3,0.7.
 - Blocking I/O without timeouts/retries. Anchor client call. Default 3,0.7.
 - Inefficient collections/boxing; String concat in loops. Anchor site. Default 2–3,0.6–0.7.
@@ -30908,6 +30917,8 @@ Maintainability:
 
 Best practices:
 - Missing Bean Validation on DTO/controller params. Anchor annotations/sigs. Default 3,0.7.
+- Resource leaks: missing AutoCloseable.close() or try-with-resources. Anchor: resource creation without proper cleanup. Default 4,0.8.
+- JPA N+1 from lazy loading without fetch joins/graphs. Anchor: entity access in loop. Default 4,0.8.
 - Null handling/Optional misuse. Anchor method sigs. Default 2,0.6.
 - Concurrency misuse (unsafe publish, non-threadsafe collections). Anchor shared field + access. Default 4,0.8.
 - Streams misuse in hot paths. Anchor pipeline. Default 2–3,0.6–0.7.
@@ -30925,6 +30936,8 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
 
 Performance:
 - N+1: queries in loops. Anchor loop + query. Default 4,0.8.
+- Memory exhaustion from unbounded user input (file uploads, POST data). Anchor: processing without limits. Default 4,0.8.
+- Inefficient regex with backtracking (ReDoS). Anchor: preg_* with complex patterns. Default 3,0.7.
 - Expensive ops in request path (large arrays, heavy regex, repeated json_encode). Anchor site. Default 3,0.7.
 - Unbounded output buffering. Anchor buffering usage. Default 2,0.6.
 
@@ -30947,6 +30960,12 @@ Web (Laravel/Symfony/Vanilla):
 - display_errors/Debug enabled in prod. Anchor config. Default 3,0.7.
 - Session/cookie flags (secure/httponly/samesite) missing. Anchor config. Default 3,0.7.
 - File uploads missing validation or stored under webroot. Anchor handler. Default 3,0.7.
+- XML external entity (XXE) in XML parsing without libxml_disable_entity_loader(). Anchor: SimpleXML/DOMDocument. Default 4,0.8.
+- Server-Side Template Injection (SSTI) in Twig/Smarty with user-controlled templates. Anchor: template rendering. Default 4,0.8.
+
+Modern PHP Security:
+- Composer packages with known vulnerabilities (check composer.lock changes). Anchor: new dependencies. Default 3,0.7.
+- Missing Content Security Policy headers on HTML responses. Anchor: response headers. Default 3,0.7.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
@@ -35857,7 +35876,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.20","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.21","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -35999,7 +36018,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.20',
+  version: '1.14.21',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
