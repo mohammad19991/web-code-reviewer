@@ -35,6 +35,21 @@ class ResponseParserService {
       // Try to extract JSON from the new XML-style format first
       jsonMatches = llmResponse.match(/<JSON>\s*([\s\S]*?)\s*<\/JSON>/g) || [];
 
+      // Extract summary from <SUMMARY> tags (prioritize this over JSON summary field)
+      const summaryMatches = llmResponse.match(/<SUMMARY>\s*([\s\S]*?)\s*<\/SUMMARY>/g) || [];
+
+      if (summaryMatches.length > 0) {
+        summaryMatches.forEach((match, index) => {
+          const summaryContent = match
+            .replace(/<SUMMARY>\s*/, '')
+            .replace(/\s*<\/SUMMARY>/, '')
+            .trim();
+          if (summaryContent) {
+            summaries.push(`**Chunk ${index + 1}**: ${summaryContent}`);
+          }
+        });
+      }
+
       if (jsonMatches.length > 0) {
         jsonMatches.forEach((match, index) => {
           try {
@@ -45,8 +60,8 @@ class ResponseParserService {
             const validatedChunk = this.validateChunkData(reviewData, index + 1);
             chunkResults.push(validatedChunk);
 
-            // Collect summary with consistent chunk indexing
-            if (validatedChunk.summary) {
+            // Only use JSON summary if no <SUMMARY> tags were found
+            if (validatedChunk.summary && summaryMatches.length === 0) {
               summaries.push(`**Chunk ${index + 1}**: ${validatedChunk.summary}`);
             }
 
