@@ -5,26 +5,21 @@
 const QA_SPECIFIC_CHECKS = {
   qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
 
-Test Organization & Maintainability (Code Quality):
-- Tests without descriptive names → Anchor: it() or describe() with unclear names. Default: evidence=3, confidence=0.8.
+Architectural Best Practices (Suggestions):
+- Inline test data instead of using helpers → Anchor: hardcoded test data in spec files. Fix: use customHelpers/[module] functions for data generation. Default: evidence=3, confidence=0.7.
+- Not using localizedStrings → Anchor: hardcoded text strings in tests/CC. Fix: import from fixtures/localizedStrings/[module]/. Default: evidence=2, confidence=0.6.
+- Missing platform separation → Anchor: desktop code in pwa directory or vice versa. Fix: ensure platform-specific code in correct directory. Default: evidence=3, confidence=0.7.
+- Inconsistent import paths → Anchor: relative imports not following project structure. Fix: use consistent import patterns from fixtures/. Default: evidence=2, confidence=0.5.
 
-Cypress Best Practices (Suggestions):
-- Not using cy.session() for authentication or causing repeated authentication → Anchor: repeated login in beforeEach or multiple login calls. Default: evidence=3, confidence=0.7.
-- Missing cy.intercept() for API calls → Anchor: cy.request or network call without intercept. Default: evidence=3, confidence=0.7.
-- Missing proper waits (no cy.should or cy.intercept before actions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
-- Missing custom commands for repeated actions → Anchor: duplicated action sequences. Default: evidence=2, confidence=0.5.
-- Using cy.get() without data-testid or accessibility attributes → Anchor: CSS selector usage. Default: evidence=2, confidence=0.6.
-- Monolithic test methods (>100 lines) → Anchor: large test function. Default: evidence=2, confidence=0.6.
-- Missing test categorization (no proper describe blocks) → Anchor: flat test structure. Default: evidence=2, confidence=0.5.
+Framework Usage (Code Quality):
+- Not using established helper functions → Anchor: reimplemented logic that exists in customHelpers. Fix: import and use existing helper functions. Default: evidence=2, confidence=0.6.
+- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows. Default: evidence=3, confidence=0.7.
+- Hardcoded waits (cy.wait ≥ 3000ms but <5000ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider using cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
+- Large test methods (>100 lines) → Anchor: test function exceeding 100 lines. Fix: break into smaller, focused test cases. Default: evidence=2, confidence=0.6.
 
-Performance & Resource Management:
-- Loading large fixtures unnecessarily → Anchor: fixture loading. Default: evidence=2, confidence=0.6.
-- Missing viewport configuration for responsive tests → Anchor: responsive test without viewport. Default: evidence=2, confidence=0.5.
-
-Test Data & Environment:
-- Hardcoded environment URLs in test code → Anchor: URL string. Default: evidence=3, confidence=0.7.
-- Missing proper test data cleanup → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
-- Using production-like data without proper isolation → Anchor: real data usage. Default: evidence=2, confidence=0.6.
+Configuration & Environment:
+- Not using environment configuration helpers → Anchor: hardcoded environment-specific values. Fix: use posConfiguration or environment helpers. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization → Anchor: tests without @tags or proper describe structure. Fix: add appropriate test tags and organization. Default: evidence=2, confidence=0.5.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
