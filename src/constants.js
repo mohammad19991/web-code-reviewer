@@ -28,21 +28,21 @@ const { getLanguageForFile } = require('./utils/language-utils');
 const CONFIG = {
   // Core configuration
   ...CORE_CONFIG,
-  
+
   // Processing configuration
   ...PROCESSING_CONFIG,
-  
+
   // Logging configuration
   ...LOGGING_CONFIG,
-  
+
   // Label configuration
   ...LABEL_CONFIG,
-  
+
   // Merge decision logic
   APPROVAL_PHRASES,
   BLOCKING_PHRASES,
   CRITICAL_ISSUES,
-  
+
   // Language configurations
   LANGUAGE_CONFIGS: LANGUAGE_FILE_CONFIGS
 };
@@ -51,23 +51,23 @@ const CONFIG = {
 module.exports = {
   // Main configuration (backward compatible)
   CONFIG,
-  
+
   // Individual configuration sections
   CORE_CONFIG,
   PROCESSING_CONFIG,
   LOGGING_CONFIG,
   LABEL_CONFIG,
-  
+
   // LLM and language configurations
   LLM_PROVIDERS,
   LANGUAGE_FILE_CONFIGS,
   LANGUAGE_ROLE_CONFIGS,
-  
+
   // Prompt components and checks
   SHARED_PROMPT_COMPONENTS,
   LANGUAGE_CRITICAL_OVERRIDES,
   LANGUAGE_SPECIFIC_CHECKS,
-  
+
   // Generated prompts and functions
   LANGUAGE_PROMPTS,
   getReviewPrompt,

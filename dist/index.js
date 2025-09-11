@@ -30283,21 +30283,21 @@ const { getLanguageForFile } = __nccwpck_require__(8137);
 const CONFIG = {
   // Core configuration
   ...CORE_CONFIG,
-  
+
   // Processing configuration
   ...PROCESSING_CONFIG,
-  
+
   // Logging configuration
   ...LOGGING_CONFIG,
-  
+
   // Label configuration
   ...LABEL_CONFIG,
-  
+
   // Merge decision logic
   APPROVAL_PHRASES,
   BLOCKING_PHRASES,
   CRITICAL_ISSUES,
-  
+
   // Language configurations
   LANGUAGE_CONFIGS: LANGUAGE_FILE_CONFIGS
 };
@@ -30306,28 +30306,29 @@ const CONFIG = {
 module.exports = {
   // Main configuration (backward compatible)
   CONFIG,
-  
+
   // Individual configuration sections
   CORE_CONFIG,
   PROCESSING_CONFIG,
   LOGGING_CONFIG,
   LABEL_CONFIG,
-  
+
   // LLM and language configurations
   LLM_PROVIDERS,
   LANGUAGE_FILE_CONFIGS,
   LANGUAGE_ROLE_CONFIGS,
-  
+
   // Prompt components and checks
   SHARED_PROMPT_COMPONENTS,
   LANGUAGE_CRITICAL_OVERRIDES,
   LANGUAGE_SPECIFIC_CHECKS,
-  
+
   // Generated prompts and functions
   LANGUAGE_PROMPTS,
   getReviewPrompt,
   getLanguageForFile
 };
+
 
 /***/ }),
 
@@ -30411,13 +30412,106 @@ module.exports = {
  * QA Automation critical overrides
  */
 const QA_CRITICAL_OVERRIDES = {
-  qa: `Auto-critical overrides (regardless of score)
-- Non-deterministic selectors that can cause flakiness in web tests (avoid brittle CSS/XPath; prefer data-test-id or accessibility queries).
-- Unbounded retries or long sleeps (cy.wait) that can significantly increase execution time or make tests flaky.
-- Tests that disable core security controls in the browser (e.g., SSL/TLS validation, insecure flags).
-- Sensitive artifacts (logs, screenshots, videos) exposing PII or secrets published outside QA infra.
-- Skipped or force-passed tests (it.skip, it.only) committed into main branches.
-  `
+  qa_web: `Auto-Critical Overrides for Cypress Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Non-deterministic selectors (nth-child, complex XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=5, confidence=0.9.
+- Hardcoded waits (cy.wait 3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
+- Focused/skipped tests (it.only, it.skip, xit) committed to main branches → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=5, confidence=0.9.
+- Tests hitting real external services without mocking → Anchor: HTTP request to external domain. Fix: mock with cy.intercept(). Default: evidence=4, confidence=0.8.
+- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=4, confidence=0.8.
+- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive names or proper organization → Anchor: unclear test/describe name. Fix: use descriptive test names and proper grouping. Default: evidence=3, confidence=0.7.
+- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.7.
+- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled security bypasses are acceptable in automation context.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Brittle selector: cy.get('.btn:nth-child(2)') → cy.get('[data-testid="submit-btn"]').
+- Long wait (critical): cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
+- Medium wait (suggestion): cy.wait(3000) → consider cy.intercept() or conditional waits.
+- Focused test: it.only('test') → it('test').`,
+
+  qa_android: `Auto-Critical Overrides for Appium Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Non-deterministic locators (absolute XPath, index-based selectors, UI hierarchy dependencies) → Anchor: brittle locator. Fix: use resource-id or accessibility-id. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep ≥ 5000ms) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use WebDriverWait with ExpectedConditions. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep 3000-4999ms) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider WebDriverWait with ExpectedConditions. Default: evidence=3, confidence=0.6.
+- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
+- Tests without app state isolation → Anchor: @Test without app reset. Fix: add driver.resetApp() in @BeforeEach. Default: evidence=4, confidence=0.8.
+- Tests hitting real backend services without mocking → Anchor: HTTP client call to external service. Fix: mock with WireMock or stubs. Default: evidence=4, confidence=0.8.
+- Tests bypassing device security without proper justification → Anchor: security bypass code. Fix: document justification or use proper test accounts. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
+- Missing Page Object patterns causing code duplication → Anchor: repeated locator/action code. Fix: extract to page object classes. Default: evidence=3, confidence=0.7.
+- Missing proper exception handling in test flows → Anchor: @Test without try-catch for expected failures. Fix: add appropriate exception handling. Default: evidence=3, confidence=0.7.
+- Unbounded operations or loops in test methods → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled device security bypasses are acceptable in automation context.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Brittle locator: "//android.widget.Button[2]" → By.id("submit_button").
+- Long wait (critical): Thread.sleep(5000) → wait.until(ExpectedConditions.visibilityOf(element)).
+- Medium wait (suggestion): Thread.sleep(3000) → consider WebDriverWait with ExpectedConditions.
+- Ignored test: @Ignore @Test → @Test (fix or remove).`,
+
+  qa_backend: `Auto-Critical Overrides for RestAssured API Tests — regardless of score
+Policy:
+- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
+- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
+
+Auto-critical items (test automation principles):
+- Tests hitting production/live endpoints → Anchor: baseURI to production domain. Fix: use test environment endpoints. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep ≥ 5000ms in API tests) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use polling with await() or proper retry logic. Default: evidence=5, confidence=0.9.
+- Hardcoded waits (Thread.sleep 3000-4999ms in API tests) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider polling with await() or proper retry logic. Default: evidence=3, confidence=0.6.
+- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
+- Tests without proper data isolation → Anchor: @Test without cleanup. Fix: add @AfterEach cleanup or use test transactions. Default: evidence=4, confidence=0.8.
+- Tests hitting real external services without mocking → Anchor: HTTP call to external domain. Fix: use WireMock or service virtualization. Default: evidence=4, confidence=0.8.
+- Tests disabling SSL verification without proper guards → Anchor: .relaxedHTTPSValidation() call. Fix: guard with environment checks or use proper certificates. Default: evidence=4, confidence=0.8.
+
+Auto-critical items (code maintainability & reusability):
+- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
+- Missing response schema validation → Anchor: API call without schema check. Fix: add JSON schema validation. Default: evidence=3, confidence=0.7.
+- Missing proper assertion patterns → Anchor: test without comprehensive response validation. Fix: add proper status code and content assertions. Default: evidence=3, confidence=0.7.
+- Unbounded loops or retry logic in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+
+Note: Test credentials and controlled SSL relaxation are acceptable in automation context when properly isolated.
+
+Evidence defaults:
+- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
+
+Tests (≤2 lines examples):
+- Production URL: baseURI("https://api.prod.com") → baseURI("https://api.test.com").
+- Long wait (critical): Thread.sleep(5000) → await().atMost(10, SECONDS).until(() -> condition).
+- Medium wait (suggestion): Thread.sleep(3000) → consider await() with proper retry logic.
+- Missing validation: .get("/users") → .get("/users").then().body(matchesJsonSchema(schema)).`
 };
 
 /**
@@ -30558,9 +30652,9 @@ Tests (≤2 lines):
 - Path traversal: "../../etc/passwd" rejected.
 `,
 
-  qa_web: QA_CRITICAL_OVERRIDES.qa,
-  qa_android: QA_CRITICAL_OVERRIDES.qa,
-  qa_backend: QA_CRITICAL_OVERRIDES.qa
+  qa_web: QA_CRITICAL_OVERRIDES.qa_web,
+  qa_android: QA_CRITICAL_OVERRIDES.qa_android,
+  qa_backend: QA_CRITICAL_OVERRIDES.qa_backend
 };
 
 module.exports = LANGUAGE_CRITICAL_OVERRIDES;
@@ -30575,32 +30669,115 @@ module.exports = LANGUAGE_CRITICAL_OVERRIDES;
  * QA Automation specific checks
  */
 const QA_SPECIFIC_CHECKS = {
-  qa: `QA Automation best practices (only if visible in diff)
-- Flakiness:
-  • Prefer data-test-id or accessibility identifiers over absolute XPath/CSS selectors.
-  • Avoid brittle locators (auto-generated IDs, deeply nested selectors).
-  • Use explicit waits/conditions (cy.intercept + wait) instead of hard sleeps (cy.wait).
-- Test design:
-  • Keep tests atomic and independent (no shared global state between tests).
-  • Follow AAA (Arrange–Act–Assert) structure for clarity.
-  • Use page objects/helpers to avoid duplication and centralize locator logic.
-  • Avoid long monolithic test methods (>200 LOC); split into reusable steps.
-- Maintainability:
-  • Consistent naming for test data and accounts (qa_user, sandbox_key).
-  • Centralize environment/config handling; avoid hardcoding URLs or envs in multiple places.
-  • Cleanup created data (test accounts, browser storage, cookies) at teardown.
-  • Use fixtures/factories for repeatable test data instead of inline hardcoded blobs.
-- Performance:
-  • Minimize heavy setup/teardown in every test (favor suite-level setup with isolation).
-  • Parallelize tests safely (ensure isolation of sessions/data).
-  • Avoid loading large datasets directly into test memory (stream/generate as needed).
-- Reporting & observability:
-  • Ensure failures produce actionable logs, screenshots, or videos.
-  • Redact secrets/tokens from test output and reports.
-  • Tag/annotate tests by category (smoke, regression, e2e) for selective runs.
-- Framework specifics:
-  • Cypress/Web: prefer cy.intercept() over stubbing XHR manually; use cypress-testing-library for user-centric queries.
-`
+  qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (cy.wait ≥ 3000ms) → Anchor: cy.wait(number) call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Brittle selectors (nth-child, complex CSS, auto-generated classes) → Anchor: selector string. Default: evidence=4, confidence=0.8.
+- Missing proper waits (no cy.should or cy.intercept before actions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
+- Tests without proper isolation (shared beforeEach state) → Anchor: shared variable usage. Default: evidence=3, confidence=0.7.
+- Missing cleanup hooks (no afterEach for browser state) → Anchor: test without cleanup. Default: evidence=3, confidence=0.7.
+
+Cypress Best Practices:
+- Missing cy.intercept() for API calls → Anchor: cy.request or network call. Default: evidence=3, confidence=0.7.
+- Not using cy.session() for authentication → Anchor: repeated login in beforeEach. Default: evidence=3, confidence=0.7.
+- Accessing DOM elements without proper commands → Anchor: direct DOM access. Default: evidence=2, confidence=0.6.
+- Missing custom commands for repeated actions → Anchor: duplicated action sequences. Default: evidence=2, confidence=0.5.
+- Using cy.get() without data-testid or accessibility attributes → Anchor: CSS selector usage. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive names → Anchor: it() or describe() with unclear names. Default: evidence=2, confidence=0.6.
+- Missing Page Object Model for complex flows → Anchor: repeated selector/action patterns. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>100 lines) → Anchor: large test function. Default: evidence=2, confidence=0.6.
+- Missing test categorization (no proper describe blocks) → Anchor: flat test structure. Default: evidence=2, confidence=0.5.
+
+Performance & Resource Management:
+- Loading large fixtures unnecessarily → Anchor: fixture loading. Default: evidence=2, confidence=0.6.
+- Not using cy.session() causing repeated authentication → Anchor: repeated login calls. Default: evidence=3, confidence=0.7.
+- Missing viewport configuration for responsive tests → Anchor: responsive test without viewport. Default: evidence=2, confidence=0.5.
+
+Test Data & Environment:
+- Hardcoded environment URLs in test code → Anchor: URL string. Default: evidence=3, confidence=0.7.
+- Missing proper test data cleanup → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
+- Using production-like data without proper isolation → Anchor: real data usage. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  qa_android: `Appium Android Automation Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Brittle locators (absolute XPath, index-based, UI hierarchy) → Anchor: locator string. Default: evidence=4, confidence=0.8.
+- Missing proper waits (no WebDriverWait with ExpectedConditions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
+- Tests without app state isolation → Anchor: @Test without app reset. Default: evidence=3, confidence=0.7.
+- Missing proper device cleanup → Anchor: test without @AfterEach cleanup. Default: evidence=3, confidence=0.7.
+
+Appium Best Practices:
+- Not using resource-id or accessibility-id → Anchor: XPath or className locator. Default: evidence=3, confidence=0.7.
+- Missing proper capability management → Anchor: hardcoded capabilities. Default: evidence=2, confidence=0.6.
+- Not handling device permissions properly → Anchor: permission-related operations. Default: evidence=2, confidence=0.6.
+- Missing proper app lifecycle management → Anchor: app state changes. Default: evidence=3, confidence=0.7.
+- Using deprecated locator strategies → Anchor: outdated locator methods. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
+- Missing Page Object Model for screen interactions → Anchor: repeated locator/action patterns. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>150 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
+
+Performance & Resource Management:
+- Creating driver instances in every test → Anchor: new driver creation. Default: evidence=3, confidence=0.7.
+- Not reusing app sessions efficiently → Anchor: repeated app installation. Default: evidence=2, confidence=0.6.
+- Missing proper timeout configurations → Anchor: missing timeout settings. Default: evidence=2, confidence=0.6.
+- Loading large test data sets inefficiently → Anchor: large data loading. Default: evidence=2, confidence=0.5.
+
+Device & Environment Management:
+- Hardcoded device configurations → Anchor: hardcoded device properties. Default: evidence=3, confidence=0.7.
+- Missing proper error handling for device-specific issues → Anchor: device operation without error handling. Default: evidence=2, confidence=0.6.
+- Not handling different Android versions properly → Anchor: version-specific code without checks. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  qa_backend: `RestAssured API Testing Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Tests hitting production endpoints → Anchor: baseURI with production domain. Default: evidence=5, confidence=0.9.
+- Missing proper retry logic for flaky network operations → Anchor: network call without retry. Default: evidence=3, confidence=0.7.
+- Tests without proper data isolation → Anchor: @Test without cleanup. Default: evidence=3, confidence=0.7.
+- Missing timeout configurations for HTTP calls → Anchor: request without timeout. Default: evidence=3, confidence=0.7.
+
+RestAssured Best Practices:
+- Not using given-when-then pattern consistently → Anchor: request without proper structure. Default: evidence=2, confidence=0.6.
+- Missing response schema validation → Anchor: API call without schema check. Default: evidence=3, confidence=0.7.
+- Not validating HTTP status codes properly → Anchor: request without status validation. Default: evidence=3, confidence=0.7.
+- Missing proper request/response logging → Anchor: request without logging configuration. Default: evidence=2, confidence=0.5.
+- Using deprecated RestAssured methods → Anchor: outdated method usage. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
+- Missing proper test data builders/factories → Anchor: inline test data creation. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>100 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
+
+API Testing Patterns:
+- Missing proper error scenario testing → Anchor: only positive test cases. Default: evidence=2, confidence=0.6.
+- Not testing different content types → Anchor: single content-type usage. Default: evidence=2, confidence=0.5.
+- Missing boundary value testing for API parameters → Anchor: single parameter value testing. Default: evidence=2, confidence=0.5.
+- Not validating response headers → Anchor: response validation without headers. Default: evidence=2, confidence=0.6.
+
+Performance & Resource Management:
+- Creating new HTTP clients for every request → Anchor: repeated client creation. Default: evidence=2, confidence=0.6.
+- Not reusing authentication tokens efficiently → Anchor: repeated authentication. Default: evidence=3, confidence=0.7.
+- Missing proper connection pooling → Anchor: connection management. Default: evidence=2, confidence=0.5.
+- Loading large response payloads unnecessarily → Anchor: full response processing. Default: evidence=2, confidence=0.5.
+
+Environment & Configuration:
+- Hardcoded environment configurations → Anchor: hardcoded URLs or configs. Default: evidence=3, confidence=0.7.
+- Missing proper test data cleanup strategies → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
+- Not handling different environment authentication properly → Anchor: environment-specific auth. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`
 };
 
 /**
@@ -30743,9 +30920,9 @@ Web (Laravel/Symfony/Vanilla):
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
-  qa_web: QA_SPECIFIC_CHECKS.qa,
-  qa_android: QA_SPECIFIC_CHECKS.qa,
-  qa_backend: QA_SPECIFIC_CHECKS.qa
+  qa_web: QA_SPECIFIC_CHECKS.qa_web,
+  qa_android: QA_SPECIFIC_CHECKS.qa_android,
+  qa_backend: QA_SPECIFIC_CHECKS.qa_backend
 };
 
 module.exports = LANGUAGE_SPECIFIC_CHECKS;
@@ -35467,7 +35644,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.13","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.15","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -35609,7 +35786,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.13',
+  version: '1.14.15',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
@@ -35625,7 +35802,7 @@ try {
   versionInfo = packageJson.version;
   packageName = packageJson.name;
   description = packageJson.description;
-} catch (error) {
+} catch {
   // In production (dist/index.js), use embedded version info
   // This is expected and not an error
 }
@@ -35646,26 +35823,26 @@ class GitHubActionsReviewer {
     this.inputService = new InputService();
     this.reviewService = new ReviewService();
     this.loggingService = new LoggingService();
-    
+
     // Get and validate inputs
     this.inputs = this.inputService.getInputs();
-    
+
     // Set API key environment variables
     this.inputService.setApiKeyEnvironment(this.inputs);
-    
+
     // Initialize GitHub context
     this.octokit = github.getOctokit(process.env.GITHUB_TOKEN);
     this.context = github.context;
-    
+
     // Initialize GitHub service
     this.githubService = new GitHubService(this.octokit, this.context);
-    
+
     // Get base branch dynamically
     this.baseBranch = this.githubService.getBaseBranch(
-      this.inputs.inputBaseBranch, 
+      this.inputs.inputBaseBranch,
       (__nccwpck_require__(9992).CONFIG).DEFAULT_BASE_BRANCH
     );
-    
+
     // Initialize file service
     this.fileService = new FileService(
       this.baseBranch,
@@ -35673,7 +35850,7 @@ class GitHubActionsReviewer {
       this.inputs.pathToFiles,
       this.inputs.ignorePatterns
     );
-    
+
     // Initialize LLM service
     this.llmService = new LLMService(
       this.inputs.provider,
@@ -35703,25 +35880,25 @@ class GitHubActionsReviewer {
 
     // Get changed files
     const changedFiles = this.fileService.getChangedFiles();
-    
+
     if (!this.loggingService.logChangedFiles(changedFiles)) {
       return;
     }
 
     // LLM Review
     core.info(`🤖 Running LLM Review of branch changes...\n`);
-    
+
     // Get language-specific review prompt
     const reviewPrompt = getReviewPrompt(this.inputs.language);
     core.info(`📝 Using ${this.inputs.language} review prompt`);
-      
+
     const fullDiff = this.fileService.getFullDiff();
     const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff, changedFiles);
-    
+
     if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge
       const shouldBlockMerge = this.reviewService.checkMergeDecision(llmResponse);
-      
+
       // Generate and post PR comment
       const prComment = this.reviewService.generatePRComment(
         shouldBlockMerge,
@@ -35734,9 +35911,9 @@ class GitHubActionsReviewer {
         this.inputs.pathToFiles,
         this.inputs.ignorePatterns
       );
-      
+
       await this.githubService.addPRComment(prComment);
-      
+
       // Log review data to external endpoint (non-blocking)
       const reviewData = this.reviewService.prepareReviewLogData(
         shouldBlockMerge,
@@ -35747,9 +35924,9 @@ class GitHubActionsReviewer {
         this.inputs.language,
         this.inputs.provider
       );
-      
+
       this.loggingService.logReviewData(reviewData);
-      
+
       // Log final decision
       this.loggingService.logFinalDecision(shouldBlockMerge, llmResponse);
     }
@@ -35766,7 +35943,8 @@ async function run() {
   }
 }
 
-run(); 
+run();
+
 module.exports = __webpack_exports__;
 /******/ })()
 ;

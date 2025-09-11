@@ -14,7 +14,7 @@ const LoggingService = require('./services/logging-service');
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.13',
+  version: '1.14.15',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
@@ -30,7 +30,7 @@ try {
   versionInfo = packageJson.version;
   packageName = packageJson.name;
   description = packageJson.description;
-} catch (error) {
+} catch {
   // In production (dist/index.js), use embedded version info
   // This is expected and not an error
 }
@@ -51,26 +51,26 @@ class GitHubActionsReviewer {
     this.inputService = new InputService();
     this.reviewService = new ReviewService();
     this.loggingService = new LoggingService();
-    
+
     // Get and validate inputs
     this.inputs = this.inputService.getInputs();
-    
+
     // Set API key environment variables
     this.inputService.setApiKeyEnvironment(this.inputs);
-    
+
     // Initialize GitHub context
     this.octokit = github.getOctokit(process.env.GITHUB_TOKEN);
     this.context = github.context;
-    
+
     // Initialize GitHub service
     this.githubService = new GitHubService(this.octokit, this.context);
-    
+
     // Get base branch dynamically
     this.baseBranch = this.githubService.getBaseBranch(
-      this.inputs.inputBaseBranch, 
+      this.inputs.inputBaseBranch,
       require('./constants').CONFIG.DEFAULT_BASE_BRANCH
     );
-    
+
     // Initialize file service
     this.fileService = new FileService(
       this.baseBranch,
@@ -78,7 +78,7 @@ class GitHubActionsReviewer {
       this.inputs.pathToFiles,
       this.inputs.ignorePatterns
     );
-    
+
     // Initialize LLM service
     this.llmService = new LLMService(
       this.inputs.provider,
@@ -108,25 +108,25 @@ class GitHubActionsReviewer {
 
     // Get changed files
     const changedFiles = this.fileService.getChangedFiles();
-    
+
     if (!this.loggingService.logChangedFiles(changedFiles)) {
       return;
     }
 
     // LLM Review
     core.info(`🤖 Running LLM Review of branch changes...\n`);
-    
+
     // Get language-specific review prompt
     const reviewPrompt = getReviewPrompt(this.inputs.language);
     core.info(`📝 Using ${this.inputs.language} review prompt`);
-      
+
     const fullDiff = this.fileService.getFullDiff();
     const llmResponse = await this.llmService.callLLM(reviewPrompt, fullDiff, changedFiles);
-    
+
     if (this.loggingService.logLLMResponse(llmResponse)) {
       // Check if LLM recommends blocking the merge
       const shouldBlockMerge = this.reviewService.checkMergeDecision(llmResponse);
-      
+
       // Generate and post PR comment
       const prComment = this.reviewService.generatePRComment(
         shouldBlockMerge,
@@ -139,9 +139,9 @@ class GitHubActionsReviewer {
         this.inputs.pathToFiles,
         this.inputs.ignorePatterns
       );
-      
+
       await this.githubService.addPRComment(prComment);
-      
+
       // Log review data to external endpoint (non-blocking)
       const reviewData = this.reviewService.prepareReviewLogData(
         shouldBlockMerge,
@@ -152,9 +152,9 @@ class GitHubActionsReviewer {
         this.inputs.language,
         this.inputs.provider
       );
-      
+
       this.loggingService.logReviewData(reviewData);
-      
+
       // Log final decision
       this.loggingService.logFinalDecision(shouldBlockMerge, llmResponse);
     }
@@ -171,4 +171,4 @@ async function run() {
   }
 }
 
-run(); 
+run();

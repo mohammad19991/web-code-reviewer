@@ -2,32 +2,115 @@
  * QA Automation specific checks
  */
 const QA_SPECIFIC_CHECKS = {
-  qa: `QA Automation best practices (only if visible in diff)
-- Flakiness:
-  • Prefer data-test-id or accessibility identifiers over absolute XPath/CSS selectors.
-  • Avoid brittle locators (auto-generated IDs, deeply nested selectors).
-  • Use explicit waits/conditions (cy.intercept + wait) instead of hard sleeps (cy.wait).
-- Test design:
-  • Keep tests atomic and independent (no shared global state between tests).
-  • Follow AAA (Arrange–Act–Assert) structure for clarity.
-  • Use page objects/helpers to avoid duplication and centralize locator logic.
-  • Avoid long monolithic test methods (>200 LOC); split into reusable steps.
-- Maintainability:
-  • Consistent naming for test data and accounts (qa_user, sandbox_key).
-  • Centralize environment/config handling; avoid hardcoding URLs or envs in multiple places.
-  • Cleanup created data (test accounts, browser storage, cookies) at teardown.
-  • Use fixtures/factories for repeatable test data instead of inline hardcoded blobs.
-- Performance:
-  • Minimize heavy setup/teardown in every test (favor suite-level setup with isolation).
-  • Parallelize tests safely (ensure isolation of sessions/data).
-  • Avoid loading large datasets directly into test memory (stream/generate as needed).
-- Reporting & observability:
-  • Ensure failures produce actionable logs, screenshots, or videos.
-  • Redact secrets/tokens from test output and reports.
-  • Tag/annotate tests by category (smoke, regression, e2e) for selective runs.
-- Framework specifics:
-  • Cypress/Web: prefer cy.intercept() over stubbing XHR manually; use cypress-testing-library for user-centric queries.
-`
+  qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (cy.wait ≥ 3000ms) → Anchor: cy.wait(number) call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Brittle selectors (nth-child, complex CSS, auto-generated classes) → Anchor: selector string. Default: evidence=4, confidence=0.8.
+- Missing proper waits (no cy.should or cy.intercept before actions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
+- Tests without proper isolation (shared beforeEach state) → Anchor: shared variable usage. Default: evidence=3, confidence=0.7.
+- Missing cleanup hooks (no afterEach for browser state) → Anchor: test without cleanup. Default: evidence=3, confidence=0.7.
+
+Cypress Best Practices:
+- Missing cy.intercept() for API calls → Anchor: cy.request or network call. Default: evidence=3, confidence=0.7.
+- Not using cy.session() for authentication → Anchor: repeated login in beforeEach. Default: evidence=3, confidence=0.7.
+- Accessing DOM elements without proper commands → Anchor: direct DOM access. Default: evidence=2, confidence=0.6.
+- Missing custom commands for repeated actions → Anchor: duplicated action sequences. Default: evidence=2, confidence=0.5.
+- Using cy.get() without data-testid or accessibility attributes → Anchor: CSS selector usage. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive names → Anchor: it() or describe() with unclear names. Default: evidence=2, confidence=0.6.
+- Missing Page Object Model for complex flows → Anchor: repeated selector/action patterns. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>100 lines) → Anchor: large test function. Default: evidence=2, confidence=0.6.
+- Missing test categorization (no proper describe blocks) → Anchor: flat test structure. Default: evidence=2, confidence=0.5.
+
+Performance & Resource Management:
+- Loading large fixtures unnecessarily → Anchor: fixture loading. Default: evidence=2, confidence=0.6.
+- Not using cy.session() causing repeated authentication → Anchor: repeated login calls. Default: evidence=3, confidence=0.7.
+- Missing viewport configuration for responsive tests → Anchor: responsive test without viewport. Default: evidence=2, confidence=0.5.
+
+Test Data & Environment:
+- Hardcoded environment URLs in test code → Anchor: URL string. Default: evidence=3, confidence=0.7.
+- Missing proper test data cleanup → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
+- Using production-like data without proper isolation → Anchor: real data usage. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  qa_android: `Appium Android Automation Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Brittle locators (absolute XPath, index-based, UI hierarchy) → Anchor: locator string. Default: evidence=4, confidence=0.8.
+- Missing proper waits (no WebDriverWait with ExpectedConditions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
+- Tests without app state isolation → Anchor: @Test without app reset. Default: evidence=3, confidence=0.7.
+- Missing proper device cleanup → Anchor: test without @AfterEach cleanup. Default: evidence=3, confidence=0.7.
+
+Appium Best Practices:
+- Not using resource-id or accessibility-id → Anchor: XPath or className locator. Default: evidence=3, confidence=0.7.
+- Missing proper capability management → Anchor: hardcoded capabilities. Default: evidence=2, confidence=0.6.
+- Not handling device permissions properly → Anchor: permission-related operations. Default: evidence=2, confidence=0.6.
+- Missing proper app lifecycle management → Anchor: app state changes. Default: evidence=3, confidence=0.7.
+- Using deprecated locator strategies → Anchor: outdated locator methods. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
+- Missing Page Object Model for screen interactions → Anchor: repeated locator/action patterns. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>150 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
+
+Performance & Resource Management:
+- Creating driver instances in every test → Anchor: new driver creation. Default: evidence=3, confidence=0.7.
+- Not reusing app sessions efficiently → Anchor: repeated app installation. Default: evidence=2, confidence=0.6.
+- Missing proper timeout configurations → Anchor: missing timeout settings. Default: evidence=2, confidence=0.6.
+- Loading large test data sets inefficiently → Anchor: large data loading. Default: evidence=2, confidence=0.5.
+
+Device & Environment Management:
+- Hardcoded device configurations → Anchor: hardcoded device properties. Default: evidence=3, confidence=0.7.
+- Missing proper error handling for device-specific issues → Anchor: device operation without error handling. Default: evidence=2, confidence=0.6.
+- Not handling different Android versions properly → Anchor: version-specific code without checks. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+
+  qa_backend: `RestAssured API Testing Checks (only if visible in diff; do not assume unseen code)
+
+Test Reliability & Stability:
+- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
+- Tests hitting production endpoints → Anchor: baseURI with production domain. Default: evidence=5, confidence=0.9.
+- Missing proper retry logic for flaky network operations → Anchor: network call without retry. Default: evidence=3, confidence=0.7.
+- Tests without proper data isolation → Anchor: @Test without cleanup. Default: evidence=3, confidence=0.7.
+- Missing timeout configurations for HTTP calls → Anchor: request without timeout. Default: evidence=3, confidence=0.7.
+
+RestAssured Best Practices:
+- Not using given-when-then pattern consistently → Anchor: request without proper structure. Default: evidence=2, confidence=0.6.
+- Missing response schema validation → Anchor: API call without schema check. Default: evidence=3, confidence=0.7.
+- Not validating HTTP status codes properly → Anchor: request without status validation. Default: evidence=3, confidence=0.7.
+- Missing proper request/response logging → Anchor: request without logging configuration. Default: evidence=2, confidence=0.5.
+- Using deprecated RestAssured methods → Anchor: outdated method usage. Default: evidence=2, confidence=0.6.
+
+Test Organization & Maintainability:
+- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
+- Missing proper test data builders/factories → Anchor: inline test data creation. Default: evidence=2, confidence=0.5.
+- Monolithic test methods (>100 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
+- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
+
+API Testing Patterns:
+- Missing proper error scenario testing → Anchor: only positive test cases. Default: evidence=2, confidence=0.6.
+- Not testing different content types → Anchor: single content-type usage. Default: evidence=2, confidence=0.5.
+- Missing boundary value testing for API parameters → Anchor: single parameter value testing. Default: evidence=2, confidence=0.5.
+- Not validating response headers → Anchor: response validation without headers. Default: evidence=2, confidence=0.6.
+
+Performance & Resource Management:
+- Creating new HTTP clients for every request → Anchor: repeated client creation. Default: evidence=2, confidence=0.6.
+- Not reusing authentication tokens efficiently → Anchor: repeated authentication. Default: evidence=3, confidence=0.7.
+- Missing proper connection pooling → Anchor: connection management. Default: evidence=2, confidence=0.5.
+- Loading large response payloads unnecessarily → Anchor: full response processing. Default: evidence=2, confidence=0.5.
+
+Environment & Configuration:
+- Hardcoded environment configurations → Anchor: hardcoded URLs or configs. Default: evidence=3, confidence=0.7.
+- Missing proper test data cleanup strategies → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
+- Not handling different environment authentication properly → Anchor: environment-specific auth. Default: evidence=2, confidence=0.6.
+
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`
 };
 
 /**
@@ -170,9 +253,9 @@ Web (Laravel/Symfony/Vanilla):
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
 
-  qa_web: QA_SPECIFIC_CHECKS.qa,
-  qa_android: QA_SPECIFIC_CHECKS.qa,
-  qa_backend: QA_SPECIFIC_CHECKS.qa
+  qa_web: QA_SPECIFIC_CHECKS.qa_web,
+  qa_android: QA_SPECIFIC_CHECKS.qa_android,
+  qa_backend: QA_SPECIFIC_CHECKS.qa_backend
 };
 
 module.exports = LANGUAGE_SPECIFIC_CHECKS;
