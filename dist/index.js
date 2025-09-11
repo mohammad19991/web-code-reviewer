@@ -30412,7 +30412,7 @@ module.exports = {
  * QA Automation critical overrides
  */
 const QA_CRITICAL_OVERRIDES = {
-  qa_web: `Auto-Critical Overrides for Cypress Tests — regardless of score
+  qa_web: `Auto-Critical Overrides for Cypress Tests — deterministic and absolute
 Policy:
 - Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
@@ -30445,7 +30445,7 @@ Tests (≤2 lines examples):
 - Medium wait (suggestion): cy.wait(3000) → consider cy.intercept() or conditional waits.
 - Focused test: it.only('test') → it('test').`,
 
-  qa_android: `Auto-Critical Overrides for Appium Tests — regardless of score
+  qa_android: `Auto-Critical Overrides for Appium Tests — deterministic and absolute
 Policy:
 - Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
@@ -30479,7 +30479,7 @@ Tests (≤2 lines examples):
 - Medium wait (suggestion): Thread.sleep(3000) → consider WebDriverWait with ExpectedConditions.
 - Ignored test: @Ignore @Test → @Test (fix or remove).`,
 
-  qa_backend: `Auto-Critical Overrides for RestAssured API Tests — regardless of score
+  qa_backend: `Auto-Critical Overrides for RestAssured API Tests — deterministic and absolute
 Policy:
 - Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
@@ -30519,13 +30519,32 @@ Tests (≤2 lines examples):
  */
 
 const LANGUAGE_CRITICAL_OVERRIDES = {
-  js: `Auto-Critical Overrides — regardless of score
-Policy:
-- Directly observed + prod-reachable = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
-- If clearly dev/test-only or unreachable in prod = downgrade to "suggestion", evidence_strength≤2, confidence≤0.5, prefix fix_code_patch with "// approximate" if anchoring is uncertain.
-- Always anchor a ≤12-line snippet including the risky sink and input. Use post-patch line numbers; if only diff hunk is known, lower evidence/confidence.
+  js: `Auto-Critical Overrides — deterministic and absolute
 
-Auto-critical items:
+Instruction precedence (apply in this order):
+1) Explicit Exceptions and Gates (this section)
+2) Category-specific rules (e.g., Performance → Event burst control)
+3) General scoring formula and tie-breakers
+
+Performance Critical Gate (Debounce present) — ABSOLUTE:
+If the same event path shows any debounce/throttle import OR call (e.g., lodash debounce/throttle, custom debounce):
+- You MUST NOT mark a performance issue as "critical" unless you also anchor code that satisfies IneffectiveProof (see below).
+- If IneffectiveProof is NOT satisfied, you MUST:
+  - set severity_proposed = "suggestion"
+  - set evidence_strength ≤ 2
+  - set confidence ≤ 0.5
+  - cap severity_score ≤ 2.00
+
+IneffectiveProof (must anchor at least ONE of):
+- Debounced wrapper is recreated each render (created in component body without useMemo/useRef and depends on unstable values), OR
+- Debounce is created inside the handler (new instance per keystroke), OR
+- wait < 32ms for text input (effectively no delay), OR
+- Unstable deps cause identity churn of the debounced function, OR
+- Async side-effect without unmount cleanup AND a directly observable stale update/race.
+
+Do not assume absence of a proper debounce just because its definition is outside the diff hunk. Missing definition ≠ proof of ineffectiveness.
+
+Auto-critical items (other categories):
 - Unescaped user input into dangerous DOM sinks: innerHTML, outerHTML, document.write, eval, Function, setTimeout/setInterval(string). Fix: safe DOM APIs, sanitization, templating.
 - Direct database queries without parameterization. Fix: parameterized queries, prepared statements, ORM builders.
 - Missing authentication/authorization checks in API routes or sensitive ops. Fix: explicit auth guard, RBAC/ABAC.
@@ -30534,17 +30553,14 @@ Auto-critical items:
 - Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
 - Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
 
-Exception for performance:
-If a stable debounce/throttle is present in the same event path, do not mark it as a critical performance issue. At most, emit a suggestion.
-
 Evidence defaults:
 - Direct untrusted sink: evidence_strength=5, confidence=0.9.
 - Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
 - Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
-
-Debounce/Throttle evidence rules:
-- Effective debounce/throttle present → evidence_strength ≤ 2, confidence ≤ 0.5, severity = suggestion or no issue.
-- Missing or misused debounce/throttle (inline recreation, wait=0, no cleanup, unstable deps) → evidence_strength ≥ 3, confidence ≥ 0.7, severity = critical if heavy work is observed.
+- Debounce/Throttle evidence and score caps (Claude-specific):
+  • Mitigation observed but definition/cleanup not visible → evidence_strength ≤ 2, confidence ≤ 0.5, cap severity_score ≤ 2.00, severity_proposed="suggestion".
+  • IneffectiveProof satisfied with heavy work observed → impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8 (may reach "critical" if severity_score ≥ 3.60).
+  • Do not infer ineffectiveness from absence of the definition in the hunk; lack of definition is not evidence.
 
 Tests (≤2 lines examples):
 - DOM injection: "<script>alert(1)</script>" is not executed.
@@ -30555,7 +30571,7 @@ Tests (≤2 lines examples):
 - Logging: prod build has no raw console.log(userData).
 `,
 
-  python: `Auto-critical Overrides — regardless of score
+  python: `Auto-critical Overrides — deterministic and absolute
 Policy:
 - If directly observed and reachable in production: severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - If clearly dev/test-only or guarded and unreachable in prod: downgrade to "suggestion", set evidence_strength≤2 and confidence≤0.5, and prefix fix_code_patch with "// approximate" if anchoring is uncertain.
@@ -30585,7 +30601,7 @@ Tests (≤2 lines examples):
 - TLS: MITM with untrusted CA fails (verify=True).
 - Path traversal: "../../etc/passwd" rejected; path resolved inside base.`,
 
-  java: `Auto-Critical Overrides — regardless of score
+  java: `Auto-Critical Overrides — deterministic and absolute
 Policy:
 - Directly observed + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - Dev/test-only or unreachable in prod => suggestion, evidence_strength≤2, confidence≤0.5, prefix patch with "// approximate" if anchoring uncertain.
@@ -30618,7 +30634,7 @@ Tests (≤2 lines):
 - Path traversal: "../../etc/passwd" rejected.
 `,
 
-  php: `Auto-Critical Overrides — regardless of score
+  php: `Auto-Critical Overrides — deterministic and absolute
 Policy:
 - Direct + prod-reachable => severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
 - Dev/test-only or unreachable => suggestion with evidence_strength≤2, confidence≤0.5; prefix patch with "// approximate" if uncertain.
@@ -30785,7 +30801,9 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
  */
 
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
+  js: `
+
+JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
 React:
 - Unstable hook deps (useEffect/useMemo/useCallback) when deps omit referenced vars or include unstable inline values. Anchor hook + deps. Default: evidence_strength=3, confidence=0.7.
 - Heavy work in render (expensive ops in component/JSX). Anchor call chain. Default: 3, 0.7 (cap to 2, 0.5 if data size unknown).
@@ -30810,11 +30828,18 @@ Performance:
 - N+1 renders/effects (loop-triggered state/effects). Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5–0.7.
 - O(n^2) work in render over props/state. Default: impact=3, exploitability=2, likelihood=2, blast_radius=2, evidence_strength=3, confidence=0.7.
 - Large lists without virtualization when clearly large. Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5.
-
-- Event burst control (debounce/throttle in high-frequency handlers such as onChange, scroll, resize, keypress):
-  • If no debounce/throttle and heavy work is observed → impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8. Severity_proposed = critical if severity_score ≥ 3.60.
-  • If debounce/throttle exists but is misused (e.g., recreated on every render, wait=0, unstable deps, no cleanup) → impact=2–3, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2–3, confidence=0.5–0.6. Severity_proposed = suggestion unless severity_score ≥ 3.60.
-  • If effective debounce/throttle is present (stable via useMemo/useCallback/useRef and wait ≥ ~100ms for text input) → impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5. Severity_proposed = suggestion or no issue.
+- Event burst control (debounce/throttle in high-frequency handlers: onChange, scroll, resize, keypress):
+  • Mitigation present but effectiveness unknown (definition/cleanup not shown):
+    impact=1, exploitability=1, likelihood=1, blast_radius=1, evidence_strength=2, confidence=0.5
+    ⇒ severity_proposed="suggestion", cap severity_score ≤ 2.00
+  • Mitigation proven ineffective (IneffectiveProof satisfied) with heavy work observed:
+    impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8
+    ⇒ may be "critical" only if severity_score ≥ 3.60
+  • Effective mitigation clearly shown (stable memo/ref and reasonable wait ≥ ~100–200ms for text input; optional .cancel() cleanup):
+    impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5
+    ⇒ "suggestion" (e.g., consider .cancel() or adjust wait) or no issue
+  • To propose "critical", include a ≤12-line snippet showing BOTH the high-frequency handler path AND at least one IneffectiveProof condition.
+  • If IneffectiveProof is not anchored, you MUST NOT propose "critical".
 
 Security (additional):
 - User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
@@ -30824,7 +30849,8 @@ Security (additional):
 Accessibility:
 - Only mark critical if core flows are blocked; otherwise suggestion with evidence_strength ≤ 2.
 
-Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
 
   python: `Python-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
 
@@ -30953,13 +30979,16 @@ Determinism & Output Contract
 - Tie-breakers: if equal severity_score, sort by category (security → performance → maintainability → best_practices), then by id, then by file, then by lines[0].
 - Round severity_score to 2 decimals using fixed-point rounding.
 - Deterministic: identical inputs must always produce identical outputs.
+- Determinism guard: When rules conflict, prefer the more restrictive rule that reduces severity (e.g., Critical Gate with score caps) unless IneffectiveProof is explicitly satisfied with anchored code.
 `,
 
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".
+- Mitigation precedence: When both risk and a recognized debounce/throttle mitigation are present, apply the Performance Critical Gate and Debounce/Throttle caps BEFORE computing or escalating severity.
+`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring
@@ -35644,7 +35673,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.15","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.16","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -35786,7 +35815,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.15',
+  version: '1.14.16',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };

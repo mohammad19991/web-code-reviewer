@@ -118,7 +118,9 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
  */
 
 const LANGUAGE_SPECIFIC_CHECKS = {
-  js: `JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
+  js: `
+
+JavaScript/TypeScript Checks (only if visible in diff; do not assume unseen code)
 React:
 - Unstable hook deps (useEffect/useMemo/useCallback) when deps omit referenced vars or include unstable inline values. Anchor hook + deps. Default: evidence_strength=3, confidence=0.7.
 - Heavy work in render (expensive ops in component/JSX). Anchor call chain. Default: 3, 0.7 (cap to 2, 0.5 if data size unknown).
@@ -143,11 +145,18 @@ Performance:
 - N+1 renders/effects (loop-triggered state/effects). Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5–0.7.
 - O(n^2) work in render over props/state. Default: impact=3, exploitability=2, likelihood=2, blast_radius=2, evidence_strength=3, confidence=0.7.
 - Large lists without virtualization when clearly large. Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5.
-
-- Event burst control (debounce/throttle in high-frequency handlers such as onChange, scroll, resize, keypress):
-  • If no debounce/throttle and heavy work is observed → impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8. Severity_proposed = critical if severity_score ≥ 3.60.
-  • If debounce/throttle exists but is misused (e.g., recreated on every render, wait=0, unstable deps, no cleanup) → impact=2–3, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2–3, confidence=0.5–0.6. Severity_proposed = suggestion unless severity_score ≥ 3.60.
-  • If effective debounce/throttle is present (stable via useMemo/useCallback/useRef and wait ≥ ~100ms for text input) → impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5. Severity_proposed = suggestion or no issue.
+- Event burst control (debounce/throttle in high-frequency handlers: onChange, scroll, resize, keypress):
+  • Mitigation present but effectiveness unknown (definition/cleanup not shown):
+    impact=1, exploitability=1, likelihood=1, blast_radius=1, evidence_strength=2, confidence=0.5
+    ⇒ severity_proposed="suggestion", cap severity_score ≤ 2.00
+  • Mitigation proven ineffective (IneffectiveProof satisfied) with heavy work observed:
+    impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8
+    ⇒ may be "critical" only if severity_score ≥ 3.60
+  • Effective mitigation clearly shown (stable memo/ref and reasonable wait ≥ ~100–200ms for text input; optional .cancel() cleanup):
+    impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5
+    ⇒ "suggestion" (e.g., consider .cancel() or adjust wait) or no issue
+  • To propose "critical", include a ≤12-line snippet showing BOTH the high-frequency handler path AND at least one IneffectiveProof condition.
+  • If IneffectiveProof is not anchored, you MUST NOT propose "critical".
 
 Security (additional):
 - User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
@@ -157,7 +166,8 @@ Security (additional):
 Accessibility:
 - Only mark critical if core flows are blocked; otherwise suggestion with evidence_strength ≤ 2.
 
-Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".
+`,
 
   python: `Python-Specific Checks (apply only if visible in the diff; do not assume unseen code). 
 

@@ -18,13 +18,16 @@ Determinism & Output Contract
 - Tie-breakers: if equal severity_score, sort by category (security → performance → maintainability → best_practices), then by id, then by file, then by lines[0].
 - Round severity_score to 2 decimals using fixed-point rounding.
 - Deterministic: identical inputs must always produce identical outputs.
+- Determinism guard: When rules conflict, prefer the more restrictive rule that reduces severity (e.g., Critical Gate with score caps) unless IneffectiveProof is explicitly satisfied with anchored code.
 `,
 
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".
+- Mitigation precedence: When both risk and a recognized debounce/throttle mitigation are present, apply the Performance Critical Gate and Debounce/Throttle caps BEFORE computing or escalating severity.
+`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring
