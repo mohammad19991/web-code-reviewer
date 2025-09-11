@@ -30440,10 +30440,17 @@ Auto-critical items:
 - Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
 - Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
 
+Exception for performance:
+If a stable debounce/throttle is present in the same event path, do not mark it as a critical performance issue. At most, emit a suggestion.
+
 Evidence defaults:
 - Direct untrusted sink: evidence_strength=5, confidence=0.9.
 - Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
 - Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
+
+Debounce/Throttle evidence rules:
+- Effective debounce/throttle present → evidence_strength ≤ 2, confidence ≤ 0.5, severity = suggestion or no issue.
+- Missing or misused debounce/throttle (inline recreation, wait=0, no cleanup, unstable deps) → evidence_strength ≥ 3, confidence ≥ 0.7, severity = critical if heavy work is observed.
 
 Tests (≤2 lines examples):
 - DOM injection: "<script>alert(1)</script>" is not executed.
@@ -30623,9 +30630,14 @@ Fetch/IO:
 - URL.createObjectURL without revokeObjectURL. Default: 3, 0.7.
 
 Performance:
-- N+1 renders/effects (loop-triggered state/effects). Default: 2–3, 0.5–0.7.
-- O(n^2) work in render over props/state. Default: 3, 0.7.
-- Large lists without virtualization when clearly large. Default: 2, 0.5.
+- N+1 renders/effects (loop-triggered state/effects). Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5–0.7.
+- O(n^2) work in render over props/state. Default: impact=3, exploitability=2, likelihood=2, blast_radius=2, evidence_strength=3, confidence=0.7.
+- Large lists without virtualization when clearly large. Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5.
+
+- Event burst control (debounce/throttle in high-frequency handlers such as onChange, scroll, resize, keypress):
+  • If no debounce/throttle and heavy work is observed → impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8. Severity_proposed = critical if severity_score ≥ 3.60.
+  • If debounce/throttle exists but is misused (e.g., recreated on every render, wait=0, unstable deps, no cleanup) → impact=2–3, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2–3, confidence=0.5–0.6. Severity_proposed = suggestion unless severity_score ≥ 3.60.
+  • If effective debounce/throttle is present (stable via useMemo/useCallback/useRef and wait ≥ ~100ms for text input) → impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5. Severity_proposed = suggestion or no issue.
 
 Security (additional):
 - User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
@@ -31217,13 +31229,11 @@ class ContextService {
         '\n\n--- [Context truncated due to size limits] ---';
 
       core.info(`📋 Final context (truncated): ${Math.round(truncatedContext.length / 1024)}KB`);
-      core.info(`📋 Final context content:\n${truncatedContext}`);
 
       return truncatedContext;
     }
 
     core.info(`📋 Final context: ${filteredSize}KB`);
-    core.info(`📋 Final context content:\n${filteredContext}`);
 
     return filteredContext;
   }
@@ -32372,6 +32382,8 @@ This chunk was too large to process completely. Here's a summary of what was det
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
         );
 
+        // Log token usage for monitoring
+        core.info(`📊 File Diff: ${diffChunk}`);
         const response = await fetch(providerConfig.url, {
           method: 'POST',
           headers: providerConfig.headers(apiKey),
@@ -35449,6 +35461,14 @@ function parseParams (str) {
 module.exports = parseParams
 
 
+/***/ }),
+
+/***/ 8330:
+/***/ ((module) => {
+
+"use strict";
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.13","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+
 /***/ })
 
 /******/ 	});
@@ -35586,6 +35606,35 @@ const LLMService = __nccwpck_require__(3891);
 const GitHubService = __nccwpck_require__(7701);
 const ReviewService = __nccwpck_require__(9962);
 const LoggingService = __nccwpck_require__(8689);
+
+// Version information - updated during build process
+const VERSION_INFO = {
+  version: '1.14.13',
+  name: 'web-code-reviewer',
+  description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
+};
+
+// Get and log current version
+let versionInfo = VERSION_INFO.version;
+let packageName = VERSION_INFO.name;
+let description = VERSION_INFO.description;
+
+// Try to get version from package.json if available (for development)
+try {
+  const packageJson = __nccwpck_require__(8330);
+  versionInfo = packageJson.version;
+  packageName = packageJson.name;
+  description = packageJson.description;
+} catch (error) {
+  // In production (dist/index.js), use embedded version info
+  // This is expected and not an error
+}
+
+core.info(`🚀 GitHub Actions Deep Reviewer v${versionInfo}`);
+core.info(`📦 Package: ${packageName}`);
+core.info(`📝 Description: ${description}`);
+core.info(`🔧 Node.js: ${process.version}`);
+core.info(`⏰ Started at: ${new Date().toISOString()}\n`);
 
 /**
  * GitHub Actions Deep Reviewer - Main orchestrator

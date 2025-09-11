@@ -124,10 +124,17 @@ Auto-critical items:
 - Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
 - Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
 
+Exception for performance:
+If a stable debounce/throttle is present in the same event path, do not mark it as a critical performance issue. At most, emit a suggestion.
+
 Evidence defaults:
 - Direct untrusted sink: evidence_strength=5, confidence=0.9.
 - Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
 - Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
+
+Debounce/Throttle evidence rules:
+- Effective debounce/throttle present → evidence_strength ≤ 2, confidence ≤ 0.5, severity = suggestion or no issue.
+- Missing or misused debounce/throttle (inline recreation, wait=0, no cleanup, unstable deps) → evidence_strength ≥ 3, confidence ≥ 0.7, severity = critical if heavy work is observed.
 
 Tests (≤2 lines examples):
 - DOM injection: "<script>alert(1)</script>" is not executed.

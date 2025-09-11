@@ -33,18 +33,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build the project
-        run: npm run build
-
-      - name: Verify build output
-        run: |
-          if [ ! -d "dist" ]; then
-            echo "❌ Build failed: dist directory not found"
-            exit 1
-          fi
-          echo "✅ Build successful: dist directory created"
-          ls -la dist/
-
       - name: Get package.json version
         id: get-version
         run: |
@@ -72,6 +60,39 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "✅ Tag ${{ steps.get-version.outputs.version }} does not exist"
           fi
+
+      - name: Update package.json version
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          # Extract version without 'v' prefix for package.json
+          NEW_VERSION=${{ steps.get-version.outputs.version }}
+          NEW_VERSION=${NEW_VERSION#v}
+          
+          # Update package.json version
+          npm version $NEW_VERSION --no-git-tag-version
+          
+          # Stage and commit version changes
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          
+          # Push the version update
+          git push origin master
+          
+          echo "✅ Package.json updated to version $NEW_VERSION and pushed to master"
+
+      - name: Build the project
+        if: steps.check-tag.outputs.exists == 'false'
+        run: npm run build
+
+      - name: Verify build output
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed: dist directory not found"
+            exit 1
+          fi
+          echo "✅ Build successful: dist directory created"
+          ls -la dist/
 
       - name: Clean working directory
         if: steps.check-tag.outputs.exists == 'false'
@@ -114,27 +135,6 @@ jobs:
           git push origin "${{ steps.get-version.outputs.version }}"
           echo "✅ Tag ${{ steps.get-version.outputs.version }} created and pushed"
 
-      - name: Update package.json version
-        if: steps.check-tag.outputs.exists == 'false'
-        run: |
-          # Extract version without 'v' prefix for package.json
-          NEW_VERSION=${{ steps.get-version.outputs.version }}
-          NEW_VERSION=${NEW_VERSION#v}
-          
-          # Pull latest changes first to avoid conflicts
-          git pull origin master --rebase
-          
-          # Update package.json version
-          npm version $NEW_VERSION --no-git-tag-version
-          
-          # Stage and commit version changes
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-          
-          # Push the version update
-          git push origin master
-          
-          echo "✅ Package.json updated to version $NEW_VERSION and pushed to master"
 
       - name: Create GitHub Release
         if: steps.check-tag.outputs.exists == 'false'
