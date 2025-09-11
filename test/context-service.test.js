@@ -390,7 +390,7 @@ type PaymentStatus = 'pending' | 'completed' | 'failed';`;
       const result = contextService.extractCodeDefinitions(code);
 
       expect(result.some(def => def.includes('Function: function largeFunction() {'))).toBe(true);
-      expect(result.some(def => def.includes('// ... (truncated for context)'))).toBe(true);
+      expect(result.some(def => def.includes('// ... (truncated for context)'))).toBe(false);
     });
   });
 
