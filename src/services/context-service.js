@@ -338,11 +338,13 @@ class ContextService {
         '\n\n--- [Context truncated due to size limits] ---';
 
       core.info(`📋 Final context (truncated): ${Math.round(truncatedContext.length / 1024)}KB`);
+      core.info(`📋 Final context (truncated): ${truncatedContext}`);
 
       return truncatedContext;
     }
 
     core.info(`📋 Final context: ${filteredSize}KB`);
+    core.info(`📋 Final context: ${filteredContext}`);
 
     return filteredContext;
   }
@@ -589,29 +591,198 @@ class ContextService {
   extractCodeDefinitions(fileContent) {
     const definitions = [];
     const lines = fileContent.split('\n');
+    let currentFunction = null;
+    let braceCount = 0;
+    let functionLines = [];
+    let inFunction = false;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim();
 
       // Function definitions
       if (trimmed.match(/^(export\s+)?(async\s+)?function\s+\w+/)) {
-        definitions.push(`Function: ${trimmed}`);
+        if (currentFunction) {
+          // Save previous function
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+        }
+        currentFunction = trimmed;
+        functionLines = [trimmed];
+        inFunction = true;
+        braceCount = 0;
       }
       // Class definitions
       else if (trimmed.match(/^(export\s+)?class\s+\w+/)) {
-        definitions.push(`Class: ${trimmed}`);
+        if (currentFunction) {
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+          currentFunction = null;
+          inFunction = false;
+        }
+        const classSample = this.extractClassSample(lines, i);
+        definitions.push(`Class: ${trimmed}\n${classSample}`);
       }
       // Interface/Type definitions
       else if (trimmed.match(/^(export\s+)?(interface|type)\s+\w+/)) {
-        definitions.push(`Type: ${trimmed}`);
+        if (currentFunction) {
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+          currentFunction = null;
+          inFunction = false;
+        }
+        const typeSample = this.extractTypeSample(lines, i);
+        definitions.push(`Type: ${trimmed}\n${typeSample}`);
       }
       // Const/Let/Var with function assignment
       else if (trimmed.match(/^(export\s+)?(const|let|var)\s+\w+\s*=\s*(async\s+)?\(/)) {
-        definitions.push(`Function Expression: ${trimmed}`);
+        if (currentFunction) {
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+          currentFunction = null;
+          inFunction = false;
+        }
+        const arrowFunctionSample = this.extractArrowFunctionSample(lines, i);
+        definitions.push(`Function Expression: ${trimmed}\n${arrowFunctionSample}`);
+      }
+      // Track function body
+      else if (inFunction && currentFunction) {
+        functionLines.push(line);
+
+        // Count braces to detect function end
+        for (const char of line) {
+          if (char === '{') braceCount++;
+          if (char === '}') braceCount--;
+        }
+
+        // Limit function body size to prevent token explosion (check before function end)
+        if (functionLines.length > 20) {
+          functionLines.push('  // ... (truncated for context)');
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+          currentFunction = null;
+          inFunction = false;
+          functionLines = [];
+        }
+        // Function ended (check after truncation)
+        else if (braceCount === 0 && functionLines.length > 1) {
+          definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+          currentFunction = null;
+          inFunction = false;
+          functionLines = [];
+        }
       }
     }
 
-    return definitions.slice(0, 10); // Limit to 10 most important
+    // Handle last function if exists
+    if (currentFunction && functionLines.length > 0) {
+      definitions.push(this.formatCodeDefinition('Function', currentFunction, functionLines));
+    }
+
+    return definitions.slice(0, 8); // Limit to 8 most important to control token usage
+  }
+
+  /**
+   * Format code definition with signature and sample body
+   */
+  formatCodeDefinition(type, signature, lines) {
+    const body = lines.slice(1, 6).join('\n'); // First 5 lines of body
+    const truncated = lines.length > 6 ? '\n  // ... (truncated)' : '';
+    return `${type}: ${signature}\n${body}${truncated}`;
+  }
+
+  /**
+   * Extract class sample (constructor and first few methods)
+   */
+  extractClassSample(lines, startIndex) {
+    const sample = [];
+    let braceCount = 0;
+    let methodCount = 0;
+
+    for (let i = startIndex; i < lines.length && methodCount < 3; i++) {
+      const line = lines[i];
+      sample.push(line);
+
+      for (const char of line) {
+        if (char === '{') braceCount++;
+        if (char === '}') braceCount--;
+      }
+
+      // Count methods
+      if (line.trim().match(/^\w+\s*\([^)]*\)\s*{/) && braceCount > 1) {
+        methodCount++;
+      }
+
+      // Class ended
+      if (braceCount === 0 && i > startIndex) break;
+    }
+
+    return sample.join('\n');
+  }
+
+  /**
+   * Extract type/interface sample
+   */
+  extractTypeSample(lines, startIndex) {
+    const sample = [];
+    let braceCount = 0;
+
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
+      sample.push(line);
+
+      for (const char of line) {
+        if (char === '{') braceCount++;
+        if (char === '}') braceCount--;
+      }
+
+      // Type ended
+      if (braceCount === 0 && i > startIndex) break;
+
+      // Limit size
+      if (sample.length > 10) {
+        sample.push('  // ... (truncated)');
+        break;
+      }
+    }
+
+    return sample.join('\n');
+  }
+
+  /**
+   * Extract arrow function sample
+   */
+  extractArrowFunctionSample(lines, startIndex) {
+    const sample = [];
+    let braceCount = 0;
+    let parenCount = 0;
+    let inParams = false;
+
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
+      sample.push(line);
+
+      for (const char of line) {
+        if (char === '(') {
+          parenCount++;
+          inParams = true;
+        }
+        if (char === ')') {
+          parenCount--;
+          if (parenCount === 0) inParams = false;
+        }
+        if (!inParams) {
+          if (char === '{') braceCount++;
+          if (char === '}') braceCount--;
+        }
+      }
+
+      // Function ended (single line or multi-line)
+      if (braceCount === 0 && !inParams && i > startIndex) break;
+
+      // Limit size
+      if (sample.length > 8) {
+        sample.push('  // ... (truncated)');
+        break;
+      }
+    }
+
+    return sample.join('\n');
   }
 
   /**
