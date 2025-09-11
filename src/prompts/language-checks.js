@@ -5,20 +5,17 @@
 const QA_SPECIFIC_CHECKS = {
   qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
 
-Architectural Best Practices (Suggestions):
+Suggestions (internal qa-frontend-cypress architectural best practices):
 - Inline test data instead of using helpers → Anchor: hardcoded test data in spec files. Fix: use customHelpers/[module] functions for data generation. Default: evidence=3, confidence=0.7.
 - Not using localizedStrings → Anchor: hardcoded text strings in tests/CC. Fix: import from fixtures/localizedStrings/[module]/. Default: evidence=2, confidence=0.6.
 - Missing platform separation → Anchor: desktop code in pwa directory or vice versa. Fix: ensure platform-specific code in correct directory. Default: evidence=3, confidence=0.7.
-- Inconsistent import paths → Anchor: relative imports not following project structure. Fix: use consistent import patterns from fixtures/. Default: evidence=2, confidence=0.5.
-
-Framework Usage (Code Quality):
-- Not using established helper functions → Anchor: reimplemented logic that exists in customHelpers. Fix: import and use existing helper functions. Default: evidence=2, confidence=0.6.
-- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows. Default: evidence=3, confidence=0.7.
-- Hardcoded waits (cy.wait ≥ 3000ms but <5000ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider using cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
-- Large test methods (>100 lines) → Anchor: test function exceeding 100 lines. Fix: break into smaller, focused test cases. Default: evidence=2, confidence=0.6.
-
-Configuration & Environment:
+- Reimplementing existing helper logic → Anchor: duplicated logic that exists in customHelpers. Fix: import and use existing helper functions. Default: evidence=2, confidence=0.6.
 - Not using environment configuration helpers → Anchor: hardcoded environment-specific values. Fix: use posConfiguration or environment helpers. Default: evidence=2, confidence=0.6.
+
+Suggestions (general cypress/web automation best practices):
+- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows. Default: evidence=3, confidence=0.7.
+- Medium hardcoded waits (3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider using cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
+- Large test methods (>100 lines) → Anchor: test function exceeding 100 lines. Fix: break into smaller, focused test cases. Default: evidence=2, confidence=0.6.
 - Missing proper test categorization → Anchor: tests without @tags or proper describe structure. Fix: add appropriate test tags and organization. Default: evidence=2, confidence=0.5.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
