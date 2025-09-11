@@ -30440,10 +30440,17 @@ Auto-critical items:
 - Prototype pollution (user input merged into Object.prototype). Fix: allowlist clone, patched libs.
 - Logging PII (names, emails, tokens, profiles) unless demonstrably stripped in production builds. Fix: remove/redact/gate logs.
 
+Exception for performance:
+If a stable debounce/throttle is present in the same event path, do not mark it as a critical performance issue. At most, emit a suggestion.
+
 Evidence defaults:
 - Direct untrusted sink: evidence_strength=5, confidence=0.9.
 - Risky sink but unclear taint: evidence_strength=3, confidence=0.6.
 - Dev-only guarded: suggestion, evidence_strength=2, confidence=0.5.
+
+Debounce/Throttle evidence rules:
+- Effective debounce/throttle present → evidence_strength ≤ 2, confidence ≤ 0.5, severity = suggestion or no issue.
+- Missing or misused debounce/throttle (inline recreation, wait=0, no cleanup, unstable deps) → evidence_strength ≥ 3, confidence ≥ 0.7, severity = critical if heavy work is observed.
 
 Tests (≤2 lines examples):
 - DOM injection: "<script>alert(1)</script>" is not executed.
@@ -30623,9 +30630,14 @@ Fetch/IO:
 - URL.createObjectURL without revokeObjectURL. Default: 3, 0.7.
 
 Performance:
-- N+1 renders/effects (loop-triggered state/effects). Default: 2–3, 0.5–0.7.
-- O(n^2) work in render over props/state. Default: 3, 0.7.
-- Large lists without virtualization when clearly large. Default: 2, 0.5.
+- N+1 renders/effects (loop-triggered state/effects). Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5–0.7.
+- O(n^2) work in render over props/state. Default: impact=3, exploitability=2, likelihood=2, blast_radius=2, evidence_strength=3, confidence=0.7.
+- Large lists without virtualization when clearly large. Default: impact=2, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2, confidence=0.5.
+
+- Event burst control (debounce/throttle in high-frequency handlers such as onChange, scroll, resize, keypress):
+  • If no debounce/throttle and heavy work is observed → impact=3–4, exploitability=3, likelihood=3, blast_radius=2, evidence_strength=3–4, confidence=0.7–0.8. Severity_proposed = critical if severity_score ≥ 3.60.
+  • If debounce/throttle exists but is misused (e.g., recreated on every render, wait=0, unstable deps, no cleanup) → impact=2–3, exploitability=2, likelihood=2, blast_radius=1, evidence_strength=2–3, confidence=0.5–0.6. Severity_proposed = suggestion unless severity_score ≥ 3.60.
+  • If effective debounce/throttle is present (stable via useMemo/useCallback/useRef and wait ≥ ~100ms for text input) → impact=0, exploitability=0, likelihood=0, blast_radius=0, evidence_strength=2, confidence=0.5. Severity_proposed = suggestion or no issue.
 
 Security (additional):
 - User-controlled URLs in navigation APIs without validation. Default: 3, 0.6 (critical only if taint is clear).
@@ -30770,9 +30782,7 @@ Determinism & Output Contract
   scopeAndExclusions: `Scope & Exclusions
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters.
-- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".
-- If code contains debounced functions AND a corresponding cleanup calling \`.cancel()\` in \`useEffect\`, classify as SAFE. Do not emit a performance issue.
-- Only emit this performance issue if \`.cancel()\` cleanup is missing or unclear even with full snippet.`,
+- Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".`,
 
   // Common severity scoring
   severityScoring: `Severity Scoring
