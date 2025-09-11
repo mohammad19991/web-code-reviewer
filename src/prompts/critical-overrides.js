@@ -8,19 +8,26 @@ Policy:
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
-Auto-critical items (test automation principles):
-- Non-deterministic selectors (nth-child, complex XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=5, confidence=0.9.
-- Hardcoded waits (cy.wait 3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
-- Focused/skipped tests (it.only, it.skip, xit) committed to main branches → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=5, confidence=0.9.
-- Tests hitting real external services without mocking → Anchor: HTTP request to external domain. Fix: mock with cy.intercept(). Default: evidence=4, confidence=0.8.
-- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=4, confidence=0.8.
-- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=4, confidence=0.8.
+Auto-critical items (internal qa-frontend-cypress architectural violations):
+- Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO. Default: evidence=5, confidence=0.9.
+- Direct selectors in test files → Anchor: cy.get() with selector string in spec.js. Fix: use CC functions instead of direct PO imports. Default: evidence=4, confidence=0.8.
+- Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern. Default: evidence=4, confidence=0.8.
+- Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports. Default: evidence=5, confidence=0.9.
+- Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers. Default: evidence=5, confidence=0.9.
+- API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/. Default: evidence=4, confidence=0.8.
+- Missing JSDoc documentation in CC files → Anchor: export function without /** comment. Fix: add JSDoc with @param, @returns, and description following project standards. Default: evidence=4, confidence=0.8.
+- Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure. Default: evidence=5, confidence=0.9.
+- Naming convention violations → Anchor: file not following [module][component]PO.js or [module][component]CC.js pattern. Fix: rename following established naming convention. Default: evidence=4, confidence=0.8.
+- README.md files in subdirectories → Anchor: new README.md file in subdirectory. Fix: remove auto-generated README.md files, keep only project root README.md. Default: evidence=4, confidence=0.8.
 
-Auto-critical items (code maintainability & reusability):
-- Tests without descriptive names or proper organization → Anchor: unclear test/describe name. Fix: use descriptive test names and proper grouping. Default: evidence=3, confidence=0.7.
-- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.7.
-- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+Auto-critical items (general cypress/web automation best practices):
+- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=3, confidence=0.8.
+- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=3, confidence=0.8.
+- Non-deterministic selectors (brittle XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=3, confidence=0.8.
+- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.8.
+- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=3, confidence=0.8.
+- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=3, confidence=0.8.
+- Focused/skipped tests (it.only, it.skip, xit) committed → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=3, confidence=0.8.
 
 Note: Test credentials and controlled security bypasses are acceptable in automation context.
 
@@ -30,10 +37,18 @@ Evidence defaults:
 - Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
 
 Tests (≤2 lines examples):
+Internal architectural violations:
+- PO with action: export function click() → move to CC file, keep only selectors in PO.
+- Direct selector: cy.get('[data-testid="btn"]') in test → use CC function like clickButton().
+- Hardcoded config: const pos = 'sa' → import { posSa } from customHelpers/configuration/posConfiguration.
+- Missing JSDoc: export function search() → /** @description Performs search */ export function search().
+- Wrong directory: desktop/flights/search.js → fixtures/pageClasses/desktop/flights/flightsSearch/.
+
+General cypress best practices:
+- Long wait: cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
 - Brittle selector: cy.get('.btn:nth-child(2)') → cy.get('[data-testid="submit-btn"]').
-- Long wait (critical): cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
-- Medium wait (suggestion): cy.wait(3000) → consider cy.intercept() or conditional waits.
-- Focused test: it.only('test') → it('test').`,
+- Focused test: it.only('test') → it('test').
+- Auto-generated README: cypress/e2e/README.md → remove file, keep only root README.md.`,
 
   qa_android: `Auto-Critical Overrides for Appium Tests — deterministic and absolute
 Policy:
