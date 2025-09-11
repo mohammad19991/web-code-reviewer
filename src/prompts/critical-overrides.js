@@ -132,6 +132,12 @@ IneffectiveProof (must anchor at least ONE of):
 - Unstable deps cause identity churn of the debounced function, OR
 - Async side-effect without unmount cleanup AND a directly observable stale update/race.
 
+**CRITICAL CLARIFICATION for IneffectiveProof:**
+- useMemo(() => debounce(callback, delay), [callback]) is CORRECT React pattern - callback dependency is required to prevent stale closures
+- Only flag as ineffective if callback is unstable due to missing useCallback/useMemo in PARENT component
+- Do not assume parent component issues from props alone - mark as "suggestion" with evidence_strength ≤ 2, confidence ≤ 0.5
+- Debounce recreation when props change is NORMAL and NECESSARY React behavior, not a performance issue
+
 Do not assume absence of a proper debounce just because its definition is outside the diff hunk. Missing definition ≠ proof of ineffectiveness.
 
 Auto-critical items (other categories):
