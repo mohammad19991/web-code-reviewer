@@ -12,7 +12,8 @@ Auto-critical items (internal qa-frontend-cypress architectural violations):
 - Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO. Default: evidence=5, confidence=0.9.
 - Direct selectors in test files → Anchor: cy.get() with selector string in spec.js. Fix: use CC functions instead of direct PO imports. Default: evidence=4, confidence=0.8.
 - Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern. Default: evidence=4, confidence=0.8.
-- Hardcoded POS/currency/language values → Anchor: hardcoded 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' strings. Fix: use posConfiguration, currencyHelper, or languageHelper imports. Default: evidence=5, confidence=0.9.
+- Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports. Default: evidence=5, confidence=0.9.
+- Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers. Default: evidence=5, confidence=0.9.
 - API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/. Default: evidence=4, confidence=0.8.
 - Missing JSDoc documentation in CC files → Anchor: export function without /** comment. Fix: add JSDoc with @param, @returns, and description following project standards. Default: evidence=4, confidence=0.8.
 - Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure. Default: evidence=5, confidence=0.9.
@@ -39,7 +40,7 @@ Tests (≤2 lines examples):
 Internal architectural violations:
 - PO with action: export function click() → move to CC file, keep only selectors in PO.
 - Direct selector: cy.get('[data-testid="btn"]') in test → use CC function like clickButton().
-- Hardcoded POS: const pos = 'sa' → import { posSa } from posConfiguration.
+- Hardcoded config: const pos = 'sa' → import { posSa } from customHelpers/configuration/posConfiguration.
 - Missing JSDoc: export function search() → /** @description Performs search */ export function search().
 - Wrong directory: desktop/flights/search.js → fixtures/pageClasses/desktop/flights/flightsSearch/.
 
