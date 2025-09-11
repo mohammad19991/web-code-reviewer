@@ -247,8 +247,6 @@ This chunk was too large to process completely. Here's a summary of what was det
           `🤖 Calling ${this.provider.toUpperCase()} LLM for chunk ${chunkIndex + 1}/${totalChunks} (attempt ${attempt}/${maxRetries})...`
         );
 
-        // Log token usage for monitoring
-        core.info(`📊 File Diff: ${diffChunk}`);
         const response = await fetch(providerConfig.url, {
           method: 'POST',
           headers: providerConfig.headers(apiKey),

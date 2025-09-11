@@ -266,7 +266,7 @@ export default App;`;
   });
 
   describe('extractCodeDefinitions', () => {
-    it('should extract function definitions', () => {
+    it('should extract function definitions with code samples', () => {
       const code = `function calculateTotal(a, b) {
   return a + b;
 }
@@ -277,11 +277,13 @@ const processData = (data) => {
 
       const result = contextService.extractCodeDefinitions(code);
 
-      expect(result).toContain('Function: function calculateTotal(a, b) {');
-      expect(result).toContain('Function Expression: const processData = (data) => {');
+      expect(result.some(def => def.includes('Function: function calculateTotal(a, b) {'))).toBe(true);
+      expect(result.some(def => def.includes('return a + b;'))).toBe(true);
+      expect(result.some(def => def.includes('Function Expression: const processData = (data) => {'))).toBe(true);
+      expect(result.some(def => def.includes('return data.map(item => item.value);'))).toBe(true);
     });
 
-    it('should extract class definitions', () => {
+    it('should extract class definitions with code samples', () => {
       const code = `class UserService {
   constructor(apiClient) {
     this.apiClient = apiClient;
@@ -294,7 +296,9 @@ const processData = (data) => {
 
       const result = contextService.extractCodeDefinitions(code);
 
-      expect(result).toContain('Class: class UserService {');
+      expect(result.some(def => def.includes('Class: class UserService {'))).toBe(true);
+      expect(result.some(def => def.includes('constructor(apiClient) {'))).toBe(true);
+      expect(result.some(def => def.includes('this.apiClient = apiClient;'))).toBe(true);
     });
 
     it('should handle empty code', () => {
@@ -303,11 +307,90 @@ const processData = (data) => {
     });
 
     it('should limit number of definitions', () => {
-      const code = Array(15).fill(0).map((_, i) => `function test${i}() {}`).join('\n');
+      const code = Array(15).fill(0).map((_, i) => `function test${i}() {\n  return ${i};\n}`).join('\n');
       
       const result = contextService.extractCodeDefinitions(code);
       
-      expect(result.length).toBeLessThanOrEqual(10);
+      expect(result.length).toBeLessThanOrEqual(8); // Updated limit from 10 to 8
+    });
+
+    it('should extract interface/type definitions', () => {
+      const code = `interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+type PaymentStatus = 'pending' | 'completed' | 'failed';`;
+
+      const result = contextService.extractCodeDefinitions(code);
+
+      expect(result.some(def => def.includes('Type: interface User {'))).toBe(true);
+      expect(result.some(def => def.includes('id: number;'))).toBe(true);
+      expect(result.some(def => def.includes('Type: type PaymentStatus ='))).toBe(true);
+    });
+
+    it('should truncate large function bodies', () => {
+      const code = `function largeFunction() {
+  const a = 1;
+  const b = 2;
+  const c = 3;
+  const d = 4;
+  const e = 5;
+  const f = 6;
+  const g = 7;
+  const h = 8;
+  const i = 9;
+  const j = 10;
+  const k = 11;
+  const l = 12;
+  const m = 13;
+  const n = 14;
+  const o = 15;
+  const p = 16;
+  const q = 17;
+  const r = 18;
+  const s = 19;
+  const t = 20;
+  const u = 21;
+  const v = 22;
+  const w = 23;
+  const x = 24;
+  const y = 25;
+  const z = 26;
+  const aa = 27;
+  const bb = 28;
+  const cc = 29;
+  const dd = 30;
+  const ee = 31;
+  const ff = 32;
+  const gg = 33;
+  const hh = 34;
+  const ii = 35;
+  const jj = 36;
+  const kk = 37;
+  const ll = 38;
+  const mm = 39;
+  const nn = 40;
+  const oo = 41;
+  const pp = 42;
+  const qq = 43;
+  const rr = 44;
+  const ss = 45;
+  const tt = 46;
+  const uu = 47;
+  const vv = 48;
+  const ww = 49;
+  const xx = 50;
+  const yy = 51;
+  const zz = 52;
+  return a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z + aa + bb + cc + dd + ee + ff + gg + hh + ii + jj + kk + ll + mm + nn + oo + pp + qq + rr + ss + tt + uu + vv + ww + xx + yy + zz;
+}`;
+
+      const result = contextService.extractCodeDefinitions(code);
+
+      expect(result.some(def => def.includes('Function: function largeFunction() {'))).toBe(true);
+      expect(result.some(def => def.includes('// ... (truncated for context)'))).toBe(true);
     });
   });
 
@@ -377,6 +460,108 @@ module.exports.UserService = class UserService {};`;
     it('should handle empty code', () => {
       const result = contextService.analyzeOutgoingRelationships('');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('formatCodeDefinition', () => {
+    it('should format code definition with signature and body', () => {
+      const signature = 'function test(a, b) {';
+      const lines = [
+        'function test(a, b) {',
+        '  const result = a + b;',
+        '  return result;',
+        '}'
+      ];
+
+      const result = contextService.formatCodeDefinition('Function', signature, lines);
+
+      expect(result).toContain('Function: function test(a, b) {');
+      expect(result).toContain('const result = a + b;');
+      expect(result).toContain('return result;');
+    });
+
+    it('should add truncation note for long functions', () => {
+      const signature = 'function longFunction() {';
+      const lines = [
+        'function longFunction() {',
+        '  const a = 1;',
+        '  const b = 2;',
+        '  const c = 3;',
+        '  const d = 4;',
+        '  const e = 5;',
+        '  const f = 6;',
+        '  return a + b + c + d + e + f;',
+        '}'
+      ];
+
+      const result = contextService.formatCodeDefinition('Function', signature, lines);
+
+      expect(result).toContain('// ... (truncated)');
+    });
+  });
+
+  describe('extractClassSample', () => {
+    it('should extract class sample with constructor and methods', () => {
+      const lines = [
+        'class UserService {',
+        '  constructor(apiClient) {',
+        '    this.apiClient = apiClient;',
+        '  }',
+        '  ',
+        '  async getUser(id) {',
+        '    return await this.apiClient.get(`/users/${id}`);',
+        '  }',
+        '  ',
+        '  validateUser(user) {',
+        '    return user && user.id;',
+        '  }',
+        '}'
+      ];
+
+      const result = contextService.extractClassSample(lines, 0);
+
+      expect(result).toContain('class UserService {');
+      expect(result).toContain('constructor(apiClient) {');
+      expect(result).toContain('async getUser(id) {');
+    });
+  });
+
+  describe('extractTypeSample', () => {
+    it('should extract type/interface sample', () => {
+      const lines = [
+        'interface User {',
+        '  id: number;',
+        '  name: string;',
+        '  email: string;',
+        '  isActive: boolean;',
+        '}'
+      ];
+
+      const result = contextService.extractTypeSample(lines, 0);
+
+      expect(result).toContain('interface User {');
+      expect(result).toContain('id: number;');
+      expect(result).toContain('name: string;');
+    });
+  });
+
+  describe('extractArrowFunctionSample', () => {
+    it('should extract arrow function sample', () => {
+      const lines = [
+        'const processData = (data) => {',
+        '  return data.map(item => {',
+        '    return {',
+        '      id: item.id,',
+        '      value: item.value * 2',
+        '    };',
+        '  });',
+        '};'
+      ];
+
+      const result = contextService.extractArrowFunctionSample(lines, 0);
+
+      expect(result).toContain('const processData = (data) => {');
+      expect(result).toContain('return data.map(item => {');
     });
   });
 
