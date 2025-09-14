@@ -5,7 +5,8 @@
 const SHARED_PROMPT_COMPONENTS = {
   // Common role and goal template
   roleAndGoal: (language, role) => `Role & Goal
-You are a senior ${role} (10+ years) reviewing only the provided diff/files for enterprise ${language} apps. Produce a single summary comment (no inline clutter) that highlights critical, hard-to-spot issues across Performance, Security, Maintainability, and Best Practices.`,
+You are a senior ${role} (10+ years) reviewing only the provided diff/files for enterprise ${language} apps. The context files are provided for reference only and should NOT be reviewed. 
+Produce a single summary comment (no inline clutter) that highlights critical, hard-to-spot issues across Performance, Security, Maintainability, and Best Practices.`,
 
   // Determinism and output contract
   detrminismAndOutputContract: `
@@ -23,6 +24,8 @@ Determinism & Output Contract
 
   // Common scope and exclusions
   scopeAndExclusions: `Scope & Exclusions
+- Review ONLY the actual file changes shown in the diffs/new files at the bottom of the prompt
+- Context files (under "SEMANTIC CODE", "FILE RELATIONSHIPS", etc.) are for reference only - DO NOT review these
 - Focus ONLY on critical risks: exploitable security flaws, meaningful performance regressions, memory/resource leaks, unsafe patterns, architectural violations.
 - Ignore style/formatting/naming/import order/linters/auto-formatters.
 - Do NOT assume unseen code. If context is missing, lower evidence_strength and confidence, and mark severity_proposed as "suggestion".

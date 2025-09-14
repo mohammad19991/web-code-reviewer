@@ -487,7 +487,11 @@ class ContextService {
 - Provide specific, actionable feedback for this code section
 - Consider how this chunk relates to the overall changes and project structure
 
-**CODE CHANGES TO REVIEW:**`;
+============================================================
+📋 ACTUAL CODE CHANGES TO REVIEW (REVIEW THESE ONLY):
+============================================================
+
+**The following diffs/files are what you should review:**`;
 
     const totalPromptSize = Math.round(chunkPrompt.length / 1024);
     core.info(

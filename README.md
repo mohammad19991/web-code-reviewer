@@ -21,9 +21,8 @@ DeepReview provides comprehensive context to the LLM:
 
 - **📝 Changed Files**: Full diff content with syntax highlighting
 - **📦 Dependencies**: Package.json, lock files, and project type
-- **🔗 File Relationships**: Import/export patterns between changed files
-- **🏗️ Project Structure**: File organization and relationships
-- **📊 Recent Commits**: Commit history for pattern analysis
+- **🏗️ File Relationships**: Import/export patterns and project structure
+- **📊 Recent Commits**: Commit history for context understanding
 
 **Smart Management**: Relevance filtering, dynamic sizing, and token optimization ensure accurate reviews.
 
