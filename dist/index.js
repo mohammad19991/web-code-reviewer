@@ -29932,15 +29932,20 @@ function wrappy (fn, cb) {
 
 const CONTEXT_CONFIG = {
   // Context size limits (dynamic based on available tokens)
-  MAX_CONTEXT_SIZE: 75 * 1024, // 75KB max context size (fallback)
+  MAX_CONTEXT_SIZE: 120 * 1024, // 120KB max context size (fallback) - increased for better context
   MAX_PROJECT_FILES: 30, // Max files to include in project structure
   MAX_COMMIT_HISTORY: 15, // Max commits to include in recent history
   MAX_IMPORT_LINES: 15, // Max import lines per file
 
   // Dynamic context sizing based on available tokens
-  CONTEXT_TOKEN_RATIO: 0.3, // Use 30% of available tokens for context
-  MIN_CONTEXT_SIZE: 15 * 1024, // 15KB minimum context size
-  MAX_CONTEXT_SIZE_LARGE: 150 * 1024, // 150KB maximum context size
+  CONTEXT_TOKEN_RATIO: 0.35, // Use 35% of available tokens for context (increased from 30%)
+  MIN_CONTEXT_SIZE: 20 * 1024, // 20KB minimum context size (increased from 15KB)
+  MAX_CONTEXT_SIZE_LARGE: 200 * 1024, // 200KB maximum context size (increased from 150KB)
+  
+  // Cost optimization settings
+  ENABLE_COST_OPTIMIZATION: false, // Set to true to enable smart context scaling
+  SMALL_CHANGE_THRESHOLD: 10 * 1024, // 10KB - use reduced context for small changes
+  LARGE_CHANGE_THRESHOLD: 50 * 1024, // 50KB - use full context for large changes
 
   // Context features (can be toggled)
   ENABLE_PROJECT_STRUCTURE: true,
@@ -35885,7 +35890,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.23","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.24","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -36027,7 +36032,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.23',
+  version: '1.14.24',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };

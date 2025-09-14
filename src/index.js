@@ -14,7 +14,7 @@ const LoggingService = require('./services/logging-service');
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.23',
+  version: '1.14.24',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
