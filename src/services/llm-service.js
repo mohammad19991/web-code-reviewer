@@ -42,7 +42,7 @@ class LLMService {
 
     if (totalChunks === 1) {
       // For single chunk, include full context
-      return `${prompt}\n\n${context}`;
+      return `${prompt}\n\n${context}\n\n============================================================\n📋 ACTUAL CODE CHANGES TO REVIEW (REVIEW THESE ONLY):\n============================================================\n\n**The following diffs/files are what you should review:**`;
     }
 
     // For multiple chunks, include project context
