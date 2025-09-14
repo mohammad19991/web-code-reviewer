@@ -20,6 +20,7 @@ A GitHub Action that performs automated code reviews using Large Language Models
 DeepReview provides comprehensive context to the LLM:
 
 - **📝 Changed Files**: Full diff content with syntax highlighting
+- **🔍 Semantic Code**: Key code patterns, function signatures, and critical logic from changed files
 - **📦 Dependencies**: Package.json, lock files, and project type
 - **🏗️ File Relationships**: Import/export patterns and project structure
 - **📊 Recent Commits**: Commit history for context understanding
