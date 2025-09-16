@@ -29941,7 +29941,7 @@ const CONTEXT_CONFIG = {
   CONTEXT_TOKEN_RATIO: 0.35, // Use 35% of available tokens for context (increased from 30%)
   MIN_CONTEXT_SIZE: 20 * 1024, // 20KB minimum context size (increased from 15KB)
   MAX_CONTEXT_SIZE_LARGE: 200 * 1024, // 200KB maximum context size (increased from 150KB)
-  
+
   // Cost optimization settings
   ENABLE_COST_OPTIMIZATION: false, // Set to true to enable smart context scaling
   SMALL_CHANGE_THRESHOLD: 10 * 1024, // 10KB - use reduced context for small changes
@@ -33708,6 +33708,7 @@ class ReviewService {
 
     // Create structured issue display
     let issueDetails = '';
+    let reviewMetrics = '';
     if (extractedData.issues.length > 0) {
       const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
       const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
@@ -33728,8 +33729,6 @@ class ReviewService {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
           issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
           issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
           if (issue.fix_summary) {
             issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
@@ -33758,8 +33757,6 @@ class ReviewService {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
           issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
           issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
           if (issue.fix_summary) {
             issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
@@ -33772,11 +33769,12 @@ class ReviewService {
       }
 
       // Add combined metrics
-      issueDetails += '### 📊 **Review Metrics**\n';
-      issueDetails += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
-      issueDetails += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
-      issueDetails += `- **Total Issues**: ${extractedData.issues.length}\n`;
-      issueDetails += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
+      
+      reviewMetrics += '### 📊 **Review Metrics**\n';
+      reviewMetrics += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
+      reviewMetrics += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
+      reviewMetrics += `- **Total Issues**: ${extractedData.issues.length}\n`;
+      reviewMetrics += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
     }
 
     return `## 🤖 DeepReview
@@ -33785,16 +33783,9 @@ class ReviewService {
 
 ${reviewSummary}
 
-**Review Details:**
-- **Department**: ${department}
-- **Team**: ${team}
-- **Provider**: ${provider.toUpperCase()}
-- **Files Reviewed**: ${changedFiles.length} files
-- **Review Date**: ${new Date().toLocaleString()}
-- **Base Branch**: ${baseBranch}
-- **Head Branch**: ${process.env.GITHUB_REF_NAME || 'HEAD'}
-- **Path Filter**: ${pathToFiles.join(', ')}
-- **Ignored Patterns**: ${ignorePatterns.join(', ')}
+---
+
+${reviewMetrics}
 
 ---
 
@@ -35890,7 +35881,7 @@ module.exports = parseParams
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.24","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"web-code-reviewer","version":"1.14.25","description":"Automated code review using LLM (Claude/OpenAI) for GitHub PRs","main":"dist/index.js","scripts":{"build":"node scripts/update-version.js && ncc build src/index.js -o dist","prepare":"husky","test":"jest","test:watch":"jest --watch","test:coverage":"jest --coverage","lint":"eslint src/**/*.js test/**/*.js","lint:fix":"eslint src/**/*.js test/**/*.js --fix","format":"prettier --write src/**/*.js test/**/*.js","format:check":"prettier --check src/**/*.js test/**/*.js","lint:format":"npm run lint:fix && npm run format","check":"npm run lint && npm run format:check","lint-staged":"lint-staged"},"keywords":["github-action","code-review","llm","claude","openai","automation"],"author":"Tajawal","license":"MIT","dependencies":{"@actions/core":"^1.10.0","@actions/github":"^6.0.0","node-fetch":"^3.3.2"},"devDependencies":{"@typescript-eslint/eslint-plugin":"^8.42.0","@typescript-eslint/parser":"^8.42.0","@vercel/ncc":"^0.38.0","dotenv":"^17.2.1","eslint":"^9.34.0","eslint-config-prettier":"^10.1.8","eslint-plugin-prettier":"^5.5.4","husky":"^9.1.7","jest":"^30.1.3","lint-staged":"^16.1.6","prettier":"^3.6.2","typescript":"^5.9.2"},"engines":{"node":">=18.0.0"}}');
 
 /***/ })
 
@@ -36032,7 +36023,7 @@ const LoggingService = __nccwpck_require__(8689);
 
 // Version information - updated during build process
 const VERSION_INFO = {
-  version: '1.14.24',
+  version: '1.14.25',
   name: 'web-code-reviewer',
   description: 'Automated code review using LLM (Claude/OpenAI) for GitHub PRs'
 };
