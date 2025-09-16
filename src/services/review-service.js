@@ -196,6 +196,7 @@ class ReviewService {
 
     // Create structured issue display
     let issueDetails = '';
+    let reviewMetrics = '';
     if (extractedData.issues.length > 0) {
       const criticalIssues = extractedData.issues.filter(i => i.severity_proposed === 'critical');
       const suggestions = extractedData.issues.filter(i => i.severity_proposed === 'suggestion');
@@ -216,8 +217,6 @@ class ReviewService {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
           issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
           issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
           if (issue.fix_summary) {
             issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
@@ -246,8 +245,6 @@ class ReviewService {
             issueDetails += `\`\`\`${language}\n${issue.snippet}\n\`\`\`\n`;
           }
           issueDetails += `- **File**: \`${issue.file}\` (lines ${issue.lines.join('-')})\n`;
-          issueDetails += `- **Severity Score**: ${issue.severity_score?.toFixed(1) || 'N/A'}/5.0\n`;
-          issueDetails += `- **Confidence**: ${Math.round(issue.confidence * 100)}%\n`;
           issueDetails += `- **Impact**: ${issue.why_it_matters}\n`;
           if (issue.fix_summary) {
             issueDetails += `- **Fix Summary**: ${issue.fix_summary}\n`;
@@ -260,11 +257,12 @@ class ReviewService {
       }
 
       // Add combined metrics
-      issueDetails += '### 📊 **Review Metrics**\n';
-      issueDetails += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
-      issueDetails += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
-      issueDetails += `- **Total Issues**: ${extractedData.issues.length}\n`;
-      issueDetails += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
+
+      reviewMetrics += '### 📊 **Review Metrics**\n';
+      reviewMetrics += `- **Critical Issues**: ${extractedData.totalCriticalCount}\n`;
+      reviewMetrics += `- **Suggestions**: ${extractedData.totalSuggestionCount}\n`;
+      reviewMetrics += `- **Total Issues**: ${extractedData.issues.length}\n`;
+      reviewMetrics += `- **Chunks Processed**: ${extractedData.chunksProcessed}\n\n`;
     }
 
     return `## 🤖 DeepReview
@@ -273,16 +271,9 @@ class ReviewService {
 
 ${reviewSummary}
 
-**Review Details:**
-- **Department**: ${department}
-- **Team**: ${team}
-- **Provider**: ${provider.toUpperCase()}
-- **Files Reviewed**: ${changedFiles.length} files
-- **Review Date**: ${new Date().toLocaleString()}
-- **Base Branch**: ${baseBranch}
-- **Head Branch**: ${process.env.GITHUB_REF_NAME || 'HEAD'}
-- **Path Filter**: ${pathToFiles.join(', ')}
-- **Ignored Patterns**: ${ignorePatterns.join(', ')}
+---
+
+${reviewMetrics}
 
 ---
 
