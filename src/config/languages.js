@@ -22,6 +22,21 @@ const LANGUAGE_FILE_CONFIGS = {
     extensions: ['.php'],
     patterns: ['*.php'],
     name: 'PHP'
+  },
+  qa_web: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs'],
+    patterns: ['*.js', '*.jsx', '*.ts', '*.tsx', '*.mjs'],
+    name: 'JavaScript/TypeScript'
+  },
+  qa_android: {
+    extensions: ['.java'],
+    patterns: ['*.java'],
+    name: 'Java'
+  },
+  qa_backend: {
+    extensions: ['.java'],
+    patterns: ['*.java'],
+    name: 'Java'
   }
 };
 
