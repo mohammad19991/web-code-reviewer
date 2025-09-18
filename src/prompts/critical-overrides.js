@@ -4,133 +4,127 @@
 const QA_CRITICAL_OVERRIDES = {
   qa_web: `Auto-Critical Overrides for Cypress Tests — deterministic and absolute
 Policy:
-- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
-- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Test automation best practices violations = severity_proposed="critical".
+- Minor maintainability or code quality issues = "suggestion".
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
 Auto-critical items (internal qa-frontend-cypress architectural violations):
-- Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO. Default: evidence=5, confidence=0.9.
-- Direct selectors in test files → Anchor: cy.get(), $body.find(), or any selector usage in spec.js files. Fix: use CC functions instead of direct selector calls. Default: evidence=4, confidence=0.8.
-- Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern. Default: evidence=4, confidence=0.8.
-- Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports. Default: evidence=5, confidence=0.9.
-- Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers. Default: evidence=5, confidence=0.9.
-- API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/. Default: evidence=4, confidence=0.8.
-- Configuration helper functions in spec.js files → Anchor: configuration-related functions like const setupPOS, const configHelper in spec.js. Fix: move to customHelpers/configuration/ directory and import. Default: evidence=4, confidence=0.8.
-- Action/utility methods in spec.js files → Anchor: action methods, utility functions, or reusable logic blocks in spec.js. Fix: move to CC files and import, keep spec.js for test scenarios only. Default: evidence=4, confidence=0.8.
-- Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure. Default: evidence=5, confidence=0.9.
-- Naming convention violations → Anchor: file not following [module][component]PO.js or [module][component]CC.js pattern. Fix: rename following established naming convention. Default: evidence=4, confidence=0.8.
-- README.md files in subdirectories → Anchor: new README.md file in subdirectory. Fix: remove auto-generated README.md files, keep only project root README.md. Default: evidence=4, confidence=0.8.
+- Actions/methods in PO files → Anchor: function definition or cy.get() call in PO file. Fix: move actions to corresponding CC file, keep only string selectors in PO.
+- Direct selectors for test actions in test files → Anchor: cy.get().click(), cy.get().type(), or action-based selectors in spec.js files. Fix: use CC functions for test actions. Note: Conditional checks like $body.find().length are acceptable.
+- Missing corresponding PO file for CC → Anchor: CC file without matching PO import. Fix: create corresponding PO file following [module][component]PO.js pattern.
+- Hardcoded POS/currency/language values → Anchor: hardcoded strings 'sa', 'ae', 'SAR', 'AED', 'ar', 'en' without imports from customHelpers/configuration. Fix: use posConfiguration, currencyHelper, languageHelper imports.
+- Hardcoded calendar/session/environment values → Anchor: hardcoded month names, session properties, environment strings without imports from customHelpers/configuration. Fix: use calendarConfiguration, sessionConfiguration helpers.
+- API calls without handler pattern → Anchor: cy.request() in test/CC files. Fix: use apiHandlers from fixtures/api/[module]/apiHandlers/.
+- Reusable configuration functions in spec.js files → Anchor: configuration functions that could be reused across multiple spec files, like const posConfig, const environmentSetup in spec.js. Fix: move to customHelpers/configuration/ directory and import. Note: Test-specific setup functions are acceptable.
+- Wrong file directory structure → Anchor: file not in fixtures/pageClasses/[platform]/[module]/[component]/ pattern. Fix: move to correct directory structure.
+- Naming convention violations → Anchor: file not following [module][component]PO.js or [module][component]CC.js pattern. Fix: rename following established naming convention.
+- README.md files in subdirectories → Anchor: new README.md file in subdirectory. Fix: remove auto-generated README.md files, keep only project root README.md.
 
 Auto-critical items (general cypress/web automation best practices):
-- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks. Default: evidence=3, confidence=0.8.
-- Hardcoded waits (cy.wait ≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: use cy.intercept() or conditional waits with cy.should(). Default: evidence=3, confidence=0.8.
-- Non-deterministic selectors (brittle XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries. Default: evidence=3, confidence=0.8.
-- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands. Default: evidence=3, confidence=0.8.
-- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=3, confidence=0.8.
-- Tests disabling browser security without proper guards → Anchor: security config. Fix: guard with environment checks or remove. Default: evidence=3, confidence=0.8.
-- Focused/skipped tests (it.only, it.skip, xit) committed → Anchor: test modifier. Fix: remove modifier before merge. Default: evidence=3, confidence=0.8.
+- Missing test isolation (shared state, no cleanup) → Anchor: test without proper setup/teardown. Fix: add beforeEach/afterEach hooks.
+- Non-deterministic selectors (brittle XPath, auto-generated classes) → Anchor: brittle selector. Fix: use data-testid or accessibility queries.
+- Missing Page Object patterns causing code duplication → Anchor: repeated selectors/actions. Fix: extract to page objects or custom commands.
+- Unbounded operations or infinite loops in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts.
+- Tests disabling browser security in production builds → Anchor: security config without environment guards. Fix: guard with test environment checks (if (Cypress.env('environment') === 'test')) or document justification.
+- Focused/skipped tests (it.only, it.skip, xit) committed → Anchor: test modifier. Fix: remove modifier before merge.
 
 Note: Test credentials and controlled security bypasses are acceptable in automation context.
 
-Evidence defaults:
-- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
-- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
-- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
 
 Tests (≤2 lines examples):
 Internal architectural violations:
 - PO with action: export function click() → move to CC file, keep only selectors in PO.
-- Direct selector: cy.get('[data-testid="btn"]') in spec.js → use CC function like clickButton().
-- Config helper in spec: const setupPOS = (posKey) => { ... } in spec.js → move to customHelpers/configuration/ and import.
-- Action method in spec: const clickButton = () => { ... } in spec.js → move to CC file and import.
+- Direct selector for action: cy.get('[data-testid="btn"]').click() in spec.js → use CC function like clickButton().
+- Reusable config in spec: const posConfig = {...} reused across specs → move to customHelpers/configuration/.
 - Hardcoded config: const pos = 'sa' → import { posSa } from customHelpers/configuration/posConfiguration.
-- Missing JSDoc: export function search() → /** @description Performs search */ export function search().
+- Security bypass in prod: chromeWebSecurity: false → guard with environment check or document test-only usage.
 - Wrong directory: desktop/flights/search.js → fixtures/pageClasses/desktop/flights/flightsSearch/.
 
 General cypress best practices:
-- Long wait: cy.wait(5000) → cy.get('[data-testid="loading"]').should('not.exist').
 - Brittle selector: cy.get('.btn:nth-child(2)') → cy.get('[data-testid="submit-btn"]').
 - Focused test: it.only('test') → it('test').
 - Auto-generated README: cypress/e2e/README.md → remove file, keep only root README.md.`,
 
-  qa_android: `Auto-Critical Overrides for Appium Tests — deterministic and absolute
+  qa_android: `Auto-Critical Overrides for Appium Android Tests — deterministic and absolute
 Policy:
-- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
-- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Test automation best practices violations = severity_proposed="critical".
+- Minor maintainability or code quality issues = "suggestion".
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
-Auto-critical items (test automation principles):
-- Non-deterministic locators (absolute XPath, index-based selectors, UI hierarchy dependencies) → Anchor: brittle locator. Fix: use resource-id or accessibility-id. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (Thread.sleep ≥ 5000ms) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use WebDriverWait with ExpectedConditions. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (Thread.sleep 3000-4999ms) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider WebDriverWait with ExpectedConditions. Default: evidence=3, confidence=0.6.
-- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
-- Tests without app state isolation → Anchor: @Test without app reset. Fix: add driver.resetApp() in @BeforeEach. Default: evidence=4, confidence=0.8.
-- Tests hitting real backend services without mocking → Anchor: HTTP client call to external service. Fix: mock with WireMock or stubs. Default: evidence=4, confidence=0.8.
-- Tests bypassing device security without proper justification → Anchor: security bypass code. Fix: document justification or use proper test accounts. Default: evidence=4, confidence=0.8.
+Auto-critical items (internal qa-android architectural violations):
+- Locators mixed with actions in UIElements classes → Anchor: action methods (click, getText, sendKeys) inside [Module]ScreenUIElements classes. Fix: move actions to corresponding [Module]ScreenActions class, keep only WebElement declarations in UIElements.
+- Actions mixed with locators in Actions classes → Anchor: @AndroidFindBy annotations or WebElement declarations in [Module]ScreenActions classes. Fix: move locators to corresponding [Module]ScreenUIElements class.
+- Direct locators in test files → Anchor: @AndroidFindBy, By.id(), or WebElement declarations in test classes. Fix: move locators to corresponding [Module]ScreenUIElements class.
+- Direct WebDriver usage in tests → Anchor: driver.findElement() or direct WebDriver calls in @Test methods. Fix: use Screen object methods instead.
+- Hardcoded test data when constants exist → Anchor: literal strings for test data when corresponding [Module]CV constants are available in project. Fix: use existing Constants classes.
+- Manual wait implementation → Anchor: Thread.sleep() or new WebDriverWait() in test or screen classes when WebDriverWaitUtils exists. Fix: use WebDriverWaitUtils.waitUntilVisibilityOfElement().
+- Manual gesture implementation → Anchor: custom swipe/scroll implementation when MobileGesturesUtil exists. Fix: use MobileGesturesUtil methods.
 
-Auto-critical items (code maintainability & reusability):
-- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
-- Missing Page Object patterns causing code duplication → Anchor: repeated locator/action code. Fix: extract to page object classes. Default: evidence=3, confidence=0.7.
-- Missing proper exception handling in test flows → Anchor: @Test without try-catch for expected failures. Fix: add appropriate exception handling. Default: evidence=3, confidence=0.7.
-- Unbounded operations or loops in test methods → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+Auto-critical items (general appium/android automation best practices):
+- Non-deterministic locators → Anchor: absolute XPath with indices like "//android.widget.Button[2]" or "//android.view.View[3]/android.widget.Text". Fix: use accessibility or resource-id locators.
+- Missing test isolation (shared state, no cleanup) → Anchor: @Test without proper @BeforeMethod/@AfterMethod or shared app state. Fix: add proper setup/teardown and app state reset.
+- Missing Screen Object patterns causing code duplication → Anchor: repeated locator/action patterns across test methods. Fix: extract to Screen Object classes following project architecture.
+- Ignored tests (@Ignore, @Disabled) committed → Anchor: test annotation. Fix: remove ignore or fix underlying issue.
+- Focused/skipped tests committed → Anchor: test methods with enabled=false or priority modifications for debugging. Fix: remove test focus before merge.
 
 Note: Test credentials and controlled device security bypasses are acceptable in automation context.
 
-Evidence defaults:
-- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
-- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
-- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
-
 Tests (≤2 lines examples):
-- Brittle locator: "//android.widget.Button[2]" → By.id("submit_button").
-- Long wait (critical): Thread.sleep(5000) → wait.until(ExpectedConditions.visibilityOf(element)).
-- Medium wait (suggestion): Thread.sleep(3000) → consider WebDriverWait with ExpectedConditions.
-- Ignored test: @Ignore @Test → @Test (fix or remove).`,
+Internal architectural violations:
+- Actions in UIElements: ui.submitButton.click() in UIElements class → move to Actions class.
+- Locators in Actions: @AndroidFindBy in Actions class → move to UIElements class.
+- Direct locator in test: @AndroidFindBy in test class → move to [Module]ScreenUIElements.
+- Direct WebDriver: driver.findElement() in test → use screen.actions.clickButton().
+- Hardcoded data when constants exist: String city = "Dubai" → use ActivitiesCV.CITY_NAME (if available).
+- Manual wait: Thread.sleep(3000) in screen class → WebDriverWaitUtils.waitUntilVisibilityOfElement().
+- Manual gesture: custom swipe code → MobileGesturesUtil.swipeLeftOnElement().
+
+General automation best practices:
+- Brittle locator: "//android.widget.Button[2]" → accessibility = "submitButton".
+- Missing isolation: @Test without cleanup → add @BeforeMethod/@AfterMethod.
+- Code duplication: repeated screen interactions → extract to Screen Object classes.
+- Ignored test: @Ignore @Test → @Test (fix or remove).
+- Focused test: enabled=false → remove before merge.`,
 
   qa_backend: `Auto-Critical Overrides for RestAssured API Tests — deterministic and absolute
 Policy:
-- Test automation best practices violations = severity_proposed="critical", evidence_strength=4–5, confidence≥0.8.
-- Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
+- Test automation best practices violations = severity_proposed="critical".
+- Minor maintainability or code quality issues = "suggestion".
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
 Auto-critical items (internal qa-backend architectural violations):
-- Direct RestAssured calls in test files → Anchor: RestAssured given()/when()/then() chains directly in @Test methods without using project's API caller patterns. Fix: use existing API caller classes (e.g., ApiControllerApiCaller) or activator patterns from project. Default: evidence=4, confidence=0.8.
-- Hardcoded API URLs/endpoints → Anchor: baseURI() or literal URL strings in test/activator files. Fix: use ConfigProperties.getProperty() methods or similar configuration classes. Default: evidence=5, confidence=0.9.
-- Hardcoded test data when alternatives exist → Anchor: literal values for IDs, codes, dates when TestDataProviders, validDataFaker, or Constants are available in project. Fix: use existing data generation patterns (TestDataProviders, validDataFaker.fillObject(), or Constants classes). Default: evidence=4, confidence=0.8.
-- Direct database connections in tests → Anchor: DriverManager.getConnection() or new MongoClient() in test files. Fix: use database connector classes or connection utilities. Default: evidence=4, confidence=0.8.
-- Missing reusable component pattern → Anchor: repeated API call sequences in multiple test methods. Fix: extract to helper classes, steps, or service classes. Default: evidence=4, confidence=0.8.
-- Complex test logic in @Test methods → Anchor: multi-step business logic directly in @Test methods (>50 lines). Fix: extract to flow/service classes or helper methods. Default: evidence=4, confidence=0.8.
-- Improper package structure → Anchor: test files not following logical organization (feature/domain/service grouping). Fix: organize tests by business domain, feature, or service. Default: evidence=4, confidence=0.8.
-- Missing test categorization when required → Anchor: @Test methods in integration/functional test suites without @Tag annotations when project uses tags for test organization. Fix: add appropriate @Tag annotations following project patterns (e.g., @Tag("hotels"), @Tag("flights")). Default: evidence=2, confidence=0.6.
-- Hardcoded business constants → Anchor: literal strings for business codes, IDs, or domain-specific values without constants. Fix: use Constants classes or configuration values. Default: evidence=4, confidence=0.8.
+- Direct RestAssured calls in test files → Anchor: RestAssured given()/when()/then() chains directly in @Test methods without using project's API caller patterns. Fix: use existing API caller classes (e.g., ApiControllerApiCaller) or activator patterns from project.
+- Hardcoded production URLs in test code → Anchor: production domain URLs (containing "prod", "production", "live") in test/activator files. Fix: use ConfigProperties.getProperty() methods for production URLs or use dedicated test environments.
+- Hardcoded test data when alternatives exist → Anchor: literal values for IDs, codes, dates when TestDataProviders, validDataFaker, or Constants are available in project. Fix: use existing data generation patterns (TestDataProviders, validDataFaker.fillObject(), or Constants classes).
+- Direct database connections in tests → Anchor: DriverManager.getConnection() or new MongoClient() in test files. Fix: use database connector classes or connection utilities.
+- Missing reusable component pattern → Anchor: repeated API call sequences in multiple test methods. Fix: extract to helper classes, steps, or service classes.
+- Complex test logic in @Test methods → Anchor: multi-step business logic directly in @Test methods (>50 lines). Fix: extract to flow/service classes or helper methods.
+- Improper package structure → Anchor: test files not following logical organization (feature/domain/service grouping). Fix: organize tests by business domain, feature, or service.
+- Missing test categorization when required → Anchor: @Test methods in integration/functional test suites without @Tag annotations when project uses tags for test organization. Fix: add appropriate @Tag annotations following project patterns (e.g., @Tag("hotels"), @Tag("flights")).
+- Hardcoded business constants → Anchor: literal strings for business codes, IDs, or domain-specific values without constants. Fix: use Constants classes or configuration values.
 
 Auto-critical items (general RestAssured/API automation best practices):
-- Tests hitting production/live endpoints → Anchor: production domain URLs in test configurations. Fix: use test environment endpoints with proper configuration. Default: evidence=5, confidence=0.9.
-- Excessive hardcoded waits (Thread.sleep ≥ 10000ms) → Anchor: Thread.sleep() call where duration ≥ 10000ms without clear justification. Fix: use polling with await(), proper retry logic, or document reason for long wait. Default: evidence=4, confidence=0.8.
-- Ignored tests (@Ignore, @Disabled) committed → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
-- Tests without proper data isolation → Anchor: @Test without cleanup or shared state. Fix: add @AfterEach cleanup or use test transactions. Default: evidence=4, confidence=0.8.
-- Tests disabling SSL verification → Anchor: relaxedHTTPSValidation() or similar calls. Fix: use proper certificates or environment-specific guards. Default: evidence=4, confidence=0.8.
-- Missing response validation → Anchor: API calls without any response validation (status code, response time, or content validation). Fix: add appropriate response validation using project's patterns (expectStatusCode, expectResponseTime, or schema validation). Default: evidence=3, confidence=0.7.
-- Unbounded loops or retry logic → Anchor: while loops without proper exit conditions. Fix: add timeout bounds and proper exit conditions. Default: evidence=4, confidence=0.8.
+- Tests hitting production endpoints → Anchor: production domain URLs (containing "prod", "production", "api.company.com" without "test"/"staging"/"dev") in test configurations. Fix: use dedicated test environment endpoints instead of production.
+- Excessive hardcoded waits (Thread.sleep ≥ 10000ms) → Anchor: Thread.sleep() call where duration ≥ 10000ms without clear justification. Fix: use polling with await(), proper retry logic, or document reason for long wait.
+- Ignored tests (@Ignore, @Disabled) committed → Anchor: test annotation. Fix: remove ignore or fix underlying issue.
+- Tests without proper data isolation → Anchor: @Test without cleanup or shared state. Fix: add @AfterEach cleanup or use test transactions.
+- Tests disabling SSL verification → Anchor: relaxedHTTPSValidation() or similar calls. Fix: use proper certificates or environment-specific guards.
+- Missing response validation → Anchor: API calls without any response validation (status code, response time, or content validation). Fix: add appropriate response validation using project's patterns (expectStatusCode, expectResponseTime, or schema validation).
+- Unbounded loops or retry logic → Anchor: while loops without proper exit conditions. Fix: add timeout bounds and proper exit conditions.
 
-Note: Test credentials and controlled SSL relaxation are acceptable in automation context when properly isolated.
-
-Evidence defaults:
-- Internal architectural violations: evidence_strength=4-5, confidence=0.8-0.9.
-- General automation best practices: evidence_strength=3-4, confidence=0.7-0.8.
-- Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
+Note: Test credentials, controlled SSL relaxation, and test environment URLs (staging/dev/test) are acceptable in automation context when properly isolated. Only flag production URLs in test code.
 
 Tests (≤2 lines examples):
 Internal architectural violations:
 - Direct RestAssured call: given().when().get("/search") in @Test → use ApiControllerApiCaller or similar project pattern.
-- Hardcoded URL: baseURI("https://api-staging.com") → ConfigProperties.getApiUrl() or similar configuration method.
+- Production URL in tests: baseURI("https://api-prod.com") → use dedicated test environments (staging/dev) or ConfigProperties for production URLs.
 - Hardcoded data when alternatives exist: String hotelId = "12345" → use validDataFaker.fillObject() or existing Constants/TestDataProviders.
 - Direct DB: new MongoClient() in test → DatabaseConnector.getConnection() or similar utility.
 - Missing reusable: repeated API sequences → extract to helper/service classes.
 - Wrong structure: src/test/java/RandomTest.java → src/test/java/domain/feature/FeatureTests.java.
 
 General automation best practices:
-- Production URL: production domain in config → test environment configuration.
+- Production endpoint: tests hitting https://api-prod.com → use test environments (staging/dev).
 - Excessive wait: Thread.sleep(10000) without justification → use polling, await(), or document async operation reason.
 - Ignored test: @Ignore @Test → @Test (fix or remove).
 - Missing validation: .get("/users") → .get("/users").then().body(matchesJsonSchema(schema)).`
