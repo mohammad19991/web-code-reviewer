@@ -93,32 +93,46 @@ Policy:
 - Minor maintainability or code quality issues = "suggestion", evidence_strength≤3, confidence≤0.7.
 - Always anchor ≤12-line snippet including the problematic test pattern. Use post-patch line numbers.
 
-Auto-critical items (test automation principles):
-- Tests hitting production/live endpoints → Anchor: baseURI to production domain. Fix: use test environment endpoints. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (Thread.sleep ≥ 5000ms in API tests) → Anchor: Thread.sleep() call where duration ≥ 5000. Fix: use polling with await() or proper retry logic. Default: evidence=5, confidence=0.9.
-- Hardcoded waits (Thread.sleep 3000-4999ms in API tests) → Anchor: Thread.sleep() call where 3000 ≤ duration < 5000. Fix: consider polling with await() or proper retry logic. Default: evidence=3, confidence=0.6.
-- Ignored tests (@Ignore, assumeTrue) committed to main branches → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
-- Tests without proper data isolation → Anchor: @Test without cleanup. Fix: add @AfterEach cleanup or use test transactions. Default: evidence=4, confidence=0.8.
-- Tests hitting real external services without mocking → Anchor: HTTP call to external domain. Fix: use WireMock or service virtualization. Default: evidence=4, confidence=0.8.
-- Tests disabling SSL verification without proper guards → Anchor: .relaxedHTTPSValidation() call. Fix: guard with environment checks or use proper certificates. Default: evidence=4, confidence=0.8.
+Auto-critical items (internal qa-backend architectural violations):
+- Direct RestAssured calls in test files → Anchor: RestAssured given()/when()/then() chains directly in @Test methods without using project's API caller patterns. Fix: use existing API caller classes (e.g., ApiControllerApiCaller) or activator patterns from project. Default: evidence=4, confidence=0.8.
+- Hardcoded API URLs/endpoints → Anchor: baseURI() or literal URL strings in test/activator files. Fix: use ConfigProperties.getProperty() methods or similar configuration classes. Default: evidence=5, confidence=0.9.
+- Hardcoded test data when alternatives exist → Anchor: literal values for IDs, codes, dates when TestDataProviders, validDataFaker, or Constants are available in project. Fix: use existing data generation patterns (TestDataProviders, validDataFaker.fillObject(), or Constants classes). Default: evidence=4, confidence=0.8.
+- Direct database connections in tests → Anchor: DriverManager.getConnection() or new MongoClient() in test files. Fix: use database connector classes or connection utilities. Default: evidence=4, confidence=0.8.
+- Missing reusable component pattern → Anchor: repeated API call sequences in multiple test methods. Fix: extract to helper classes, steps, or service classes. Default: evidence=4, confidence=0.8.
+- Complex test logic in @Test methods → Anchor: multi-step business logic directly in @Test methods (>50 lines). Fix: extract to flow/service classes or helper methods. Default: evidence=4, confidence=0.8.
+- Improper package structure → Anchor: test files not following logical organization (feature/domain/service grouping). Fix: organize tests by business domain, feature, or service. Default: evidence=4, confidence=0.8.
+- Missing test categorization when required → Anchor: @Test methods in integration/functional test suites without @Tag annotations when project uses tags for test organization. Fix: add appropriate @Tag annotations following project patterns (e.g., @Tag("hotels"), @Tag("flights")). Default: evidence=2, confidence=0.6.
+- Hardcoded business constants → Anchor: literal strings for business codes, IDs, or domain-specific values without constants. Fix: use Constants classes or configuration values. Default: evidence=4, confidence=0.8.
 
-Auto-critical items (code maintainability & reusability):
-- Tests without descriptive method names → Anchor: unclear @Test method name. Fix: use descriptive test method names. Default: evidence=3, confidence=0.7.
-- Missing response schema validation → Anchor: API call without schema check. Fix: add JSON schema validation. Default: evidence=3, confidence=0.7.
-- Missing proper assertion patterns → Anchor: test without comprehensive response validation. Fix: add proper status code and content assertions. Default: evidence=3, confidence=0.7.
-- Unbounded loops or retry logic in tests → Anchor: loop without exit condition. Fix: add proper bounds and timeouts. Default: evidence=4, confidence=0.8.
+Auto-critical items (general RestAssured/API automation best practices):
+- Tests hitting production/live endpoints → Anchor: production domain URLs in test configurations. Fix: use test environment endpoints with proper configuration. Default: evidence=5, confidence=0.9.
+- Excessive hardcoded waits (Thread.sleep ≥ 10000ms) → Anchor: Thread.sleep() call where duration ≥ 10000ms without clear justification. Fix: use polling with await(), proper retry logic, or document reason for long wait. Default: evidence=4, confidence=0.8.
+- Ignored tests (@Ignore, @Disabled) committed → Anchor: test annotation. Fix: remove ignore or fix underlying issue. Default: evidence=5, confidence=0.9.
+- Tests without proper data isolation → Anchor: @Test without cleanup or shared state. Fix: add @AfterEach cleanup or use test transactions. Default: evidence=4, confidence=0.8.
+- Tests disabling SSL verification → Anchor: relaxedHTTPSValidation() or similar calls. Fix: use proper certificates or environment-specific guards. Default: evidence=4, confidence=0.8.
+- Missing response validation → Anchor: API calls without any response validation (status code, response time, or content validation). Fix: add appropriate response validation using project's patterns (expectStatusCode, expectResponseTime, or schema validation). Default: evidence=3, confidence=0.7.
+- Unbounded loops or retry logic → Anchor: while loops without proper exit conditions. Fix: add timeout bounds and proper exit conditions. Default: evidence=4, confidence=0.8.
 
 Note: Test credentials and controlled SSL relaxation are acceptable in automation context when properly isolated.
 
 Evidence defaults:
-- Test automation principle violations: evidence_strength=4-5, confidence=0.8-0.9.
+- Internal architectural violations: evidence_strength=4-5, confidence=0.8-0.9.
+- General automation best practices: evidence_strength=3-4, confidence=0.7-0.8.
 - Code maintainability issues: evidence_strength=2-3, confidence=0.6-0.7.
-- Unclear or context-dependent patterns: evidence_strength=2, confidence=0.5.
 
 Tests (≤2 lines examples):
-- Production URL: baseURI("https://api.prod.com") → baseURI("https://api.test.com").
-- Long wait (critical): Thread.sleep(5000) → await().atMost(10, SECONDS).until(() -> condition).
-- Medium wait (suggestion): Thread.sleep(3000) → consider await() with proper retry logic.
+Internal architectural violations:
+- Direct RestAssured call: given().when().get("/search") in @Test → use ApiControllerApiCaller or similar project pattern.
+- Hardcoded URL: baseURI("https://api-staging.com") → ConfigProperties.getApiUrl() or similar configuration method.
+- Hardcoded data when alternatives exist: String hotelId = "12345" → use validDataFaker.fillObject() or existing Constants/TestDataProviders.
+- Direct DB: new MongoClient() in test → DatabaseConnector.getConnection() or similar utility.
+- Missing reusable: repeated API sequences → extract to helper/service classes.
+- Wrong structure: src/test/java/RandomTest.java → src/test/java/domain/feature/FeatureTests.java.
+
+General automation best practices:
+- Production URL: production domain in config → test environment configuration.
+- Excessive wait: Thread.sleep(10000) without justification → use polling, await(), or document async operation reason.
+- Ignored test: @Ignore @Test → @Test (fix or remove).
 - Missing validation: .get("/users") → .get("/users").then().body(matchesJsonSchema(schema)).`
 };
 
