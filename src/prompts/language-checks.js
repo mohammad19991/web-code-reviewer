@@ -56,42 +56,35 @@ Note: Use post-patch line numbers. If only diff hunk is known or source is uncer
 
   qa_backend: `RestAssured API Testing Checks (only if visible in diff; do not assume unseen code)
 
-Test Reliability & Stability:
-- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
-- Tests hitting production endpoints → Anchor: baseURI with production domain. Default: evidence=5, confidence=0.9.
-- Missing proper retry logic for flaky network operations → Anchor: network call without retry. Default: evidence=3, confidence=0.7.
-- Tests without proper data isolation → Anchor: @Test without cleanup. Default: evidence=3, confidence=0.7.
-- Missing timeout configurations for HTTP calls → Anchor: request without timeout. Default: evidence=3, confidence=0.7.
+Suggestions (internal qa-backend architectural best practices):
+- Not using Activator/Service pattern → Anchor: direct RestAssured calls in test methods or repeated API logic. Fix: extract to Activator/Service classes in activators or services package. Default: evidence=3, confidence=0.7.
+- Not using existing test data patterns → Anchor: hardcoded test data when project has TestDataProviders, validDataFaker, or Constants available. Fix: use existing data generation patterns (validDataFaker.fillObject(), TestDataProviders, or Constants). Default: evidence=2, confidence=0.6.
+- Missing proper database abstraction → Anchor: direct database queries or connections in tests. Fix: use database connector classes, repositories, or connection utilities. Default: evidence=3, confidence=0.7.
+- Not following logical package organization → Anchor: test files not organized by business domain or feature. Fix: organize tests by domain, feature, or service (e.g., domain/feature/FeatureTests.java). Default: evidence=2, confidence=0.6.
+- Missing helper/utility pattern for complex scenarios → Anchor: complex test logic directly in @Test methods. Fix: extract to helper classes, service classes, or utility methods for better maintainability. Default: evidence=2, confidence=0.6.
+- Not using Constants for business values → Anchor: hardcoded business codes, IDs, or domain-specific values. Fix: use Constants classes or configuration values for consistency. Default: evidence=2, confidence=0.6.
 
-RestAssured Best Practices:
-- Not using given-when-then pattern consistently → Anchor: request without proper structure. Default: evidence=2, confidence=0.6.
-- Missing response schema validation → Anchor: API call without schema check. Default: evidence=3, confidence=0.7.
-- Not validating HTTP status codes properly → Anchor: request without status validation. Default: evidence=3, confidence=0.7.
-- Missing proper request/response logging → Anchor: request without logging configuration. Default: evidence=2, confidence=0.5.
-- Using deprecated RestAssured methods → Anchor: outdated method usage. Default: evidence=2, confidence=0.6.
-
-Test Organization & Maintainability:
-- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
-- Missing proper test data builders/factories → Anchor: inline test data creation. Default: evidence=2, confidence=0.5.
-- Monolithic test methods (>100 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
-- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
-
-API Testing Patterns:
-- Missing proper error scenario testing → Anchor: only positive test cases. Default: evidence=2, confidence=0.6.
-- Not testing different content types → Anchor: single content-type usage. Default: evidence=2, confidence=0.5.
-- Missing boundary value testing for API parameters → Anchor: single parameter value testing. Default: evidence=2, confidence=0.5.
-- Not validating response headers → Anchor: response validation without headers. Default: evidence=2, confidence=0.6.
+Suggestions (general RestAssured/API automation best practices):
+- Long hardcoded waits (5000-9999ms) → Anchor: Thread.sleep() call where 5000 ≤ duration < 10000. Fix: consider using await() with proper retry logic or polling mechanisms, or document if needed for async operations. Default: evidence=2, confidence=0.6.
+- Not using given-when-then pattern consistently → Anchor: RestAssured calls without proper BDD structure. Fix: structure API calls using given().when().then() pattern. Default: evidence=2, confidence=0.6.
+- Missing proper request/response logging → Anchor: API calls without logging configuration. Fix: add .log().all() or appropriate logging for debugging. Default: evidence=2, confidence=0.5.
+- Large test methods (>100 lines) → Anchor: test method exceeding 100 lines. Fix: break into smaller, focused test cases or use helper methods. Default: evidence=2, confidence=0.6.
+- Missing boundary value testing for API parameters → Anchor: single parameter value testing. Fix: add tests for edge cases and boundary values. Default: evidence=2, confidence=0.5.
+- Not validating response headers → Anchor: response validation without header checks. Fix: add header validation for security and content type checks. Default: evidence=2, confidence=0.6.
+- Missing proper error scenario testing → Anchor: only positive test cases. Fix: add negative test cases for error handling validation. Default: evidence=2, confidence=0.6.
+- Creating new HTTP clients unnecessarily → Anchor: repeated client creation. Fix: reuse HTTP clients or use connection pooling. Default: evidence=2, confidence=0.6.
+- Not testing different content types → Anchor: single content-type usage. Fix: test various content types (JSON, XML, form-data) as applicable. Default: evidence=2, confidence=0.5.
+- Missing timeout configurations → Anchor: HTTP requests without timeout settings. Fix: add appropriate timeout configurations for network calls. Default: evidence=3, confidence=0.7.
 
 Performance & Resource Management:
-- Creating new HTTP clients for every request → Anchor: repeated client creation. Default: evidence=2, confidence=0.6.
-- Not reusing authentication tokens efficiently → Anchor: repeated authentication. Default: evidence=3, confidence=0.7.
-- Missing proper connection pooling → Anchor: connection management. Default: evidence=2, confidence=0.5.
-- Loading large response payloads unnecessarily → Anchor: full response processing. Default: evidence=2, confidence=0.5.
+- Not reusing authentication tokens efficiently → Anchor: repeated authentication calls. Fix: cache and reuse authentication tokens across test sessions. Default: evidence=3, confidence=0.7.
+- Loading large response payloads unnecessarily → Anchor: full response processing when partial data needed. Fix: use selective response parsing or pagination. Default: evidence=2, confidence=0.5.
+- Missing proper connection pooling → Anchor: connection management without pooling. Fix: implement connection pooling for better resource utilization. Default: evidence=2, confidence=0.5.
 
-Environment & Configuration:
-- Hardcoded environment configurations → Anchor: hardcoded URLs or configs. Default: evidence=3, confidence=0.7.
-- Missing proper test data cleanup strategies → Anchor: data creation without cleanup. Default: evidence=3, confidence=0.7.
-- Not handling different environment authentication properly → Anchor: environment-specific auth. Default: evidence=2, confidence=0.6.
+Environment & Configuration Management:
+- Not handling different environment configurations properly → Anchor: environment-specific values without proper configuration management. Fix: use environment-specific property files and configuration classes. Default: evidence=2, confidence=0.6.
+- Missing proper test data cleanup strategies → Anchor: test data creation without cleanup mechanisms. Fix: implement @AfterEach or @AfterAll cleanup for test data. Default: evidence=3, confidence=0.7.
+- Not handling authentication properly across environments → Anchor: hardcoded authentication or environment-specific auth logic. Fix: use environment-appropriate authentication mechanisms. Default: evidence=2, confidence=0.6.
 
 Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`
 };
