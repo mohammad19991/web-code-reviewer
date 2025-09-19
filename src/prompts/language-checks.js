@@ -5,71 +5,48 @@ const QA_SPECIFIC_CHECKS = {
   qa_web: `Cypress Web Automation Checks (only if visible in diff; do not assume unseen code)
 
 Suggestions (internal qa-frontend-cypress architectural best practices):
-- Inline test data instead of using helpers → Anchor: hardcoded test data in spec files. Fix: use customHelpers/[module] functions for data generation. Default: evidence=3, confidence=0.7.
-- Not using localizedStrings → Anchor: hardcoded text strings in tests/CC. Fix: import from fixtures/localizedStrings/[module]/. Default: evidence=2, confidence=0.6.
-- Missing platform separation → Anchor: desktop code in pwa directory or vice versa. Fix: ensure platform-specific code in correct directory. Default: evidence=3, confidence=0.7.
-- Reimplementing existing helper logic → Anchor: duplicated logic that exists in customHelpers. Fix: import and use existing helper functions. Default: evidence=2, confidence=0.6.
-- Not using environment configuration helpers → Anchor: hardcoded environment-specific values. Fix: use posConfiguration or environment helpers. Default: evidence=2, confidence=0.6.
+- Action/utility methods in spec.js files → Anchor: action methods, utility functions, or reusable logic blocks in spec.js. Fix: consider moving to CC files and importing, keep spec.js for test scenarios only.
+- Inline test data instead of using helpers → Anchor: hardcoded test data in spec files when reusable helpers exist. Fix: use customHelpers/[module] functions for data generation when appropriate.
+- Not using localizedStrings → Anchor: hardcoded text strings in tests/CC. Fix: import from fixtures/localizedStrings/[module]/.
+- Reimplementing existing helper logic → Anchor: duplicated logic that exists in customHelpers. Fix: import and use existing helper functions.
+- Not using environment configuration helpers → Anchor: hardcoded environment-specific values. Fix: use posConfiguration or environment helpers.
 
 Suggestions (general cypress/web automation best practices):
-- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows. Default: evidence=3, confidence=0.7.
-- Medium hardcoded waits (3000-4999ms) → Anchor: cy.wait(number) call where 3000 ≤ number < 5000. Fix: consider using cy.intercept() or conditional waits. Default: evidence=3, confidence=0.6.
-- Large test methods (>100 lines) → Anchor: test function exceeding 100 lines. Fix: break into smaller, focused test cases. Default: evidence=2, confidence=0.6.
-- Missing proper test categorization → Anchor: tests without @tags or proper describe structure. Fix: add appropriate test tags and organization. Default: evidence=2, confidence=0.5.
+- Missing cy.session() for authentication → Anchor: repeated login without session caching. Fix: use cy.session() for authentication flows.
+- Long hardcoded waits (≥ 5000ms) → Anchor: cy.wait(number) call where number ≥ 5000. Fix: consider using cy.intercept() or conditional waits with cy.should().
+- Excessive test methods (>150 lines) → Anchor: test function exceeding 150 lines with complex logic. Fix: break into smaller, focused test cases or extract helper methods.
 
-Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+Note: Use post-patch line numbers for precise anchoring.`,
 
   qa_android: `Appium Android Automation Checks (only if visible in diff; do not assume unseen code)
 
-Test Reliability & Stability:
-- Hardcoded waits (Thread.sleep ≥ 3000ms) → Anchor: Thread.sleep() call. Default: evidence=4, confidence=0.8 (≥5000ms); evidence=3, confidence=0.6 (3000-4999ms).
-- Brittle locators (absolute XPath, index-based, UI hierarchy) → Anchor: locator string. Default: evidence=4, confidence=0.8.
-- Missing proper waits (no WebDriverWait with ExpectedConditions) → Anchor: action without wait. Default: evidence=3, confidence=0.7.
-- Tests without app state isolation → Anchor: @Test without app reset. Default: evidence=3, confidence=0.7.
-- Missing proper device cleanup → Anchor: test without @AfterEach cleanup. Default: evidence=3, confidence=0.7.
+Suggestions (internal qa-android architectural best practices):
+- Manual gesture implementation when utility exists → Anchor: custom swipe/scroll code when MobileGesturesUtil is available. Fix: use MobileGesturesUtil.swipeLeftOnElement(), scrollToElement() methods.
+- Manual wait implementation when utility exists → Anchor: Thread.sleep() or custom WebDriverWait in screen classes when WebDriverWaitUtils exists. Fix: use WebDriverWaitUtils.waitUntilVisibilityOfElement().
+- Hardcoded test data when constants available → Anchor: literal strings when corresponding [Module]CV constants exist in project. Fix: use existing Constants classes for consistent test data.
 
-Appium Best Practices:
-- Not using resource-id or accessibility-id → Anchor: XPath or className locator. Default: evidence=3, confidence=0.7.
-- Missing proper capability management → Anchor: hardcoded capabilities. Default: evidence=2, confidence=0.6.
-- Not handling device permissions properly → Anchor: permission-related operations. Default: evidence=2, confidence=0.6.
-- Missing proper app lifecycle management → Anchor: app state changes. Default: evidence=3, confidence=0.7.
-- Using deprecated locator strategies → Anchor: outdated locator methods. Default: evidence=2, confidence=0.6.
+Suggestions (general appium/android automation best practices):
+- Large test methods (>150 lines) → Anchor: test method exceeding 150 lines with complex logic. Fix: break into smaller, focused test cases or extract helper methods.
+- Suboptimal locator strategies → Anchor: className or complex XPath locators when accessibility-id or resource-id are available. Fix: prefer accessibility-id for better reliability and maintenance.
 
-Test Organization & Maintainability:
-- Tests without descriptive method names → Anchor: @Test method with unclear name. Default: evidence=2, confidence=0.6.
-- Missing Page Object Model for screen interactions → Anchor: repeated locator/action patterns. Default: evidence=2, confidence=0.5.
-- Monolithic test methods (>150 lines) → Anchor: large test method. Default: evidence=2, confidence=0.6.
-- Missing proper test categorization (@Category, @Tag) → Anchor: test without categories. Default: evidence=2, confidence=0.5.
-
-Performance & Resource Management:
-- Creating driver instances in every test → Anchor: new driver creation. Default: evidence=3, confidence=0.7.
-- Not reusing app sessions efficiently → Anchor: repeated app installation. Default: evidence=2, confidence=0.6.
-- Missing proper timeout configurations → Anchor: missing timeout settings. Default: evidence=2, confidence=0.6.
-- Loading large test data sets inefficiently → Anchor: large data loading. Default: evidence=2, confidence=0.5.
-
-Device & Environment Management:
-- Hardcoded device configurations → Anchor: hardcoded device properties. Default: evidence=3, confidence=0.7.
-- Missing proper error handling for device-specific issues → Anchor: device operation without error handling. Default: evidence=2, confidence=0.6.
-- Not handling different Android versions properly → Anchor: version-specific code without checks. Default: evidence=2, confidence=0.6.
-
-Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`,
+Note: Use post-patch line numbers for precise anchoring.`,
 
   qa_backend: `RestAssured API Testing Checks (only if visible in diff; do not assume unseen code)
 
 Suggestions (internal qa-backend architectural best practices):
-- Not using Activator/Service pattern → Anchor: direct RestAssured calls in test methods or repeated API logic. Fix: extract to Activator/Service classes in activators or services package. Default: evidence=3, confidence=0.7.
-- Not using existing test data patterns → Anchor: hardcoded test data when project has TestDataProviders, validDataFaker, or Constants available. Fix: use existing data generation patterns (validDataFaker.fillObject(), TestDataProviders, or Constants). Default: evidence=2, confidence=0.6.
-- Missing proper database abstraction → Anchor: direct database queries or connections in tests. Fix: use database connector classes, repositories, or connection utilities. Default: evidence=3, confidence=0.7.
-- Missing helper/utility pattern for complex scenarios → Anchor: complex test logic directly in @Test methods. Fix: extract to helper classes, service classes, or utility methods for better maintainability. Default: evidence=2, confidence=0.6.
+- Not using Activator/Service pattern → Anchor: direct RestAssured calls in test methods or repeated API logic. Fix: extract to Activator/Service classes in activators or services package.
+- Not using existing test data patterns → Anchor: hardcoded test data when project has TestDataProviders, validDataFaker, or Constants available. Fix: use existing data generation patterns (validDataFaker.fillObject(), TestDataProviders, or Constants).
+- Missing proper database abstraction → Anchor: direct database queries or connections in tests. Fix: use database connector classes, repositories, or connection utilities.
+- Missing helper/utility pattern for complex scenarios → Anchor: complex test logic directly in @Test methods. Fix: extract to helper classes, service classes, or utility methods for better maintainability.
 
 Suggestions (general API automation best practices):
-- Long hardcoded waits (5000-9999ms) → Anchor: Thread.sleep() call where 5000 ≤ duration < 10000. Fix: consider using await() with proper retry logic or polling mechanisms, or document if needed for async operations. Default: evidence=2, confidence=0.6.
-- Large test methods (>100 lines) → Anchor: test method exceeding 100 lines. Fix: break into smaller, focused test cases or use helper methods. Default: evidence=2, confidence=0.6.
-- Missing timeout configurations → Anchor: HTTP requests without timeout settings. Fix: add appropriate timeout configurations for network calls. Default: evidence=3, confidence=0.7.
-- Not reusing authentication tokens efficiently → Anchor: repeated authentication calls. Fix: cache and reuse authentication tokens across test sessions. Default: evidence=3, confidence=0.7.
-- Missing proper test data cleanup strategies → Anchor: test data creation without cleanup mechanisms. Fix: implement @AfterEach or @AfterAll cleanup for test data. Default: evidence=3, confidence=0.7.
+- Long hardcoded waits (5000-9999ms) → Anchor: Thread.sleep() call where 5000 ≤ duration < 10000. Fix: consider using await() with proper retry logic or polling mechanisms, or document if needed for async operations.
+- Large test methods (>100 lines) → Anchor: test method exceeding 100 lines. Fix: break into smaller, focused test cases or use helper methods.
+- Missing timeout configurations → Anchor: HTTP requests without timeout settings. Fix: add appropriate timeout configurations for network calls.
+- Not reusing authentication tokens efficiently → Anchor: repeated authentication calls. Fix: cache and reuse authentication tokens across test sessions.
+- Missing proper test data cleanup strategies → Anchor: test data creation without cleanup mechanisms. Fix: implement @AfterEach or @AfterAll cleanup for test data.
 
-Note: Use post-patch line numbers. If only diff hunk is known or source is uncertain, set evidence_strength ≤ 2 and confidence ≤ 0.5, and prefix fix_code_patch with "// approximate".`
+Note: Use post-patch line numbers for precise anchoring.`
 };
 
 /**
